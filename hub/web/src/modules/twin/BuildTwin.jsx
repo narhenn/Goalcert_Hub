@@ -1,10 +1,12 @@
 // BuildTwin.jsx — "Build a twin from an image." A base Digital Twin feature even
 // though it uses AI (vision → twin spec): it belongs to the twin, not the agent layer.
-// Frontend-only staged simulation of the generate → preview → attach pipeline.
+// Live mode: calls NextXR API to create a real tenant, then opens the live twin.
+// Stub mode: runs the frontend staged animation as before.
 import React, { useEffect, useRef, useState } from 'react'
 import { DOMAINS, Icon } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
+import API from '../../api.js'
 
 const STAGES = [
   { k: 'segment', label: 'Isolating subject', icon: 'ti-crop' },
@@ -15,18 +17,40 @@ const STAGES = [
 ]
 
 export default function BuildTwin({ onOpened }) {
-  const { openTwin } = useTwin()
+  const { openTwin, serviceMode } = useTwin()
   const { log } = useAudit()
   const [domain, setDomain] = useState('manufacturing')
   const [name, setName] = useState('')
   const [stage, setStage] = useState(-1)   // -1 idle, 0..n running, 99 done
+  const [buildLive, setBuildLive] = useState(false)
   const timer = useRef(null)
   const simDomains = Object.keys(DOMAINS).filter(k => DOMAINS[k].source === 'sim' && DOMAINS[k].library !== false)
 
   useEffect(() => () => timer.current && clearInterval(timer.current), [])
 
-  const build = () => {
-    setStage(0)
+  const build = async () => {
+    setStage(0); setBuildLive(false)
+
+    if (serviceMode === 'live') {
+      try {
+        const label = name.trim() || DOMAINS[domain].label
+        // advance pipeline stages visually while the API call runs
+        let i = 0
+        timer.current = setInterval(() => {
+          i += 1
+          if (i < STAGES.length) setStage(i)
+        }, 600)
+        await API.twin.create(label, domain)
+        clearInterval(timer.current)
+        setStage(99); setBuildLive(true)
+        return
+      } catch {
+        clearInterval(timer.current)
+        // NextXR unreachable — fall through to local sim
+      }
+    }
+
+    // local staged animation fallback
     let i = 0
     timer.current = setInterval(() => {
       i += 1
@@ -34,6 +58,7 @@ export default function BuildTwin({ onOpened }) {
       else setStage(i)
     }, 750)
   }
+
   const twinName = name.trim() || DOMAINS[domain].label
   const open = () => {
     log('twin', 'build', `Built twin "${twinName}"`, `Reconstructed ${DOMAINS[domain].label} from image`)
@@ -97,8 +122,18 @@ export default function BuildTwin({ onOpened }) {
             <div style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(22,163,74,.05)',
               border: '1px solid rgba(22,163,74,.2)', borderRadius: 12 }}>
               <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon n="ti-circle-check" style={{ color: 'var(--accent-green)' }} /> {twinName} is ready</div>
-              <div className="hint" style={{ fontSize: 12, marginBottom: 12 }}>Geometry reconstructed, telemetry wired, physics seeded.</div>
+                <Icon n="ti-circle-check" style={{ color: 'var(--accent-green)' }} /> {twinName} is ready
+                <span
+                  className={`pill ${buildLive ? 'pill-green' : 'pill-surface'}`}
+                  style={{ fontSize: 8 }}
+                  title={buildLive ? 'Created on NextXR backend' : 'Local simulation'}
+                >
+                  {buildLive ? '● live' : '◌ sim'}
+                </span>
+              </div>
+              <div className="hint" style={{ fontSize: 12, marginBottom: 12 }}>
+                {buildLive ? 'Twin provisioned on NextXR — telemetry feed active.' : 'Geometry reconstructed, telemetry wired, physics seeded.'}
+              </div>
               <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={open}>
                 <Icon n="ti-bolt" /> Open live dashboard</button>
             </div>

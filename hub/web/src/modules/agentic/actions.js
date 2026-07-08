@@ -1,9 +1,10 @@
 // actions.js — the Agentic AI's one-tap actions. Each returns a markdown report from
-// the current twin snapshot, using the zero-token stub reasoners (swap for the real
-// agent endpoints when the Agentic AI service lands).
+// the current twin snapshot. Tries real API endpoints first; falls back to zero-token
+// stub reasoners when the backend is unreachable (demo / standalone mode).
 import { SIG, sevClass, fmt, pct, tilesFor, domainMeta } from '../../lib.jsx'
 import { stubDiagnosis, stubAnalysis } from '../../aiStubs.js'
 import { humanize } from '../../hub/util.js'
+import API from '../../api.js'
 
 const worst = (domain, latest = {}) => {
   let w = null
@@ -22,15 +23,76 @@ export const AGENT_ACTIONS = [
   { id: 'cascade', label: 'Cascade analysis', icon: 'ti-affiliate', hint: 'How one fault propagates' },
 ]
 
-export function runAgent(id, { domain, machineName, twin }) {
-  if (id === 'diagnose') return stubDiagnosis({ domain, machineName, twin }).report
-  if (id === 'analysis') return stubAnalysis({ domain, machineName, twin }).report
-  if (id === 'workorder') return workOrder({ domain, machineName, twin })
-  if (id === 'cascade') return cascade({ domain, machineName, twin })
+// runAgent is now async — callers must await it (AIDrawer handles this)
+export async function runAgent(id, { domain, machineName, twin }) {
+  if (id === 'diagnose') {
+    try {
+      const r = await fetch('/api/twin/agents/ops/diagnose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!r.ok) throw new Error(`diagnose: ${r.status}`)
+      const data = await r.json()
+      return data.report || data.result || JSON.stringify(data)
+    } catch {
+      return stubDiagnosis({ domain, machineName, twin }).report
+    }
+  }
+
+  if (id === 'analysis') {
+    try {
+      const r = await fetch('/api/twin/agents/ops/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!r.ok) throw new Error(`analysis: ${r.status}`)
+      const data = await r.json()
+      return data.report || data.result || JSON.stringify(data)
+    } catch {
+      return stubAnalysis({ domain, machineName, twin }).report
+    }
+  }
+
+  if (id === 'workorder') {
+    try {
+      const r = await fetch('/api/agents/agents/workorder/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variables: { domain, machine_name: machineName, twin_state: twin } }),
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!r.ok) throw new Error(`workorder: ${r.status}`)
+      const data = await r.json()
+      return data.report || data.result || JSON.stringify(data)
+    } catch {
+      return workOrderStub({ domain, machineName, twin })
+    }
+  }
+
+  if (id === 'cascade') {
+    try {
+      const r = await fetch('/api/twin/agents/ops/cascade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
+        signal: AbortSignal.timeout(6000),
+      })
+      if (!r.ok) throw new Error(`cascade: ${r.status}`)
+      const data = await r.json()
+      return data.report || data.result || JSON.stringify(data)
+    } catch {
+      return cascadeStub({ domain, machineName, twin })
+    }
+  }
+
   return 'Unknown action.'
 }
 
-function workOrder({ domain, machineName, twin }) {
+function workOrderStub({ domain, machineName, twin }) {
   const w = worst(domain, twin?.latest || {})
   const meta = domainMeta(domain)
   const comp = (meta.assets && meta.assets[0] && meta.assets[0][0]) || meta.label
@@ -45,7 +107,7 @@ function workOrder({ domain, machineName, twin }) {
   return lines.join('\n')
 }
 
-function cascade({ domain, machineName, twin }) {
+function cascadeStub({ domain, machineName, twin }) {
   const w = worst(domain, twin?.latest || {})
   const meta = domainMeta(domain)
   const subs = (meta.assets || []).slice(0, 3).map(a => a[0])

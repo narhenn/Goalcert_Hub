@@ -1,0 +1,201 @@
+services:
+
+  # ────────────────────────────────────────────────────
+  # INFRASTRUCTURE
+  # ────────────────────────────────────────────────────
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: hub-neo4j
+    ports:
+      - "7474:7474"   # browser UI
+      - "7687:7687"   # bolt
+    environment:
+      NEO4J_AUTH: neo4j/nextxr2026
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "nextxr2026", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hub-postgres
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hub2026
+      POSTGRES_MULTIPLE_DATABASES: automind,goalcert
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: hub-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────
+  # SERVICE 1 — NextXR Digital Twin (port 8080)
+  # ────────────────────────────────────────────────────
+
+  nextxr:
+    build:
+      context: ../../NextXR-Digital-Twin
+      dockerfile: Dockerfile
+    container_name: hub-nextxr
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: nextxr2026
+      NXR_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────
+  # SERVICE 2 — AUTOMIND API (port 8001)
+  # ────────────────────────────────────────────────────
+
+  automind:
+    build:
+      context: ../../automind/backend
+      dockerfile: Dockerfile
+    container_name: hub-automind
+    ports:
+      - "8001:8001"
+    environment:
+      PORT: "8001"
+      DATABASE_URL: postgresql+asyncpg://hub:hub2026@postgres:5432/automind
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────
+  # SERVICE 2b — AUTOMIND Celery worker (same image, different CMD)
+  # ────────────────────────────────────────────────────
+
+  automind-worker:
+    build:
+      context: ../../automind/backend
+      dockerfile: Dockerfile.worker
+    container_name: hub-automind-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://hub:hub2026@postgres:5432/automind
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/2
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.tasks.celery_app:celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────
+  # SERVICE 3 — GoalCert Simulation Engine (port 8002)
+  # ────────────────────────────────────────────────────
+
+  goalcert:
+    build:
+      context: ../../GoalCert-Simulation-Engine/backend
+      dockerfile: Dockerfile
+    container_name: hub-goalcert
+    ports:
+      - "8002:8002"
+    environment:
+      PORT: "8002"
+      GOALCERT_DATABASE_URL: postgresql+psycopg://hub:hub2026@postgres:5432/goalcert
+      GOALCERT_CORS_ORIGINS: '["http://localhost:3000","http://localhost:8080","http://localhost:8001"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ────────────────────────────────────────────────────
+  # SERVICE 4 — DroneForce (port 3000)
+  # ────────────────────────────────────────────────────
+
+  droneforce:
+    build:
+      context: ../../droneforce/droneforce
+      dockerfile: Dockerfile
+    container_name: hub-droneforce
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+# ────────────────────────────────────────────────────
+# VOLUMES
+# ────────────────────────────────────────────────────
+
+volumes:
+  neo4j_data:
+  postgres_data:
+  redis_data:

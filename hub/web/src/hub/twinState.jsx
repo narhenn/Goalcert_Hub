@@ -1,23 +1,36 @@
 // twinState.jsx — one shared "active twin" across every module surface.
 //
 // The Overview, Live Dashboard, Scenario engine and the AI co-pilot all read the
-// same live twin so a composed product feels like one asset, not four tabs. Runs
-// entirely in the browser on the frontend simulator (lib.jsx simTwin) — no backend.
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+// same live twin so a composed product feels like one asset, not four tabs.
+//
+// serviceMode: 'stub' — runs entirely on the frontend simulator (lib.jsx simTwin).
+//              'live' — calls the NextXR backend; falls back to stub if unreachable.
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { simTwin, domainMeta } from '../lib.jsx'
+import API from '../api.js'
 
 const TwinCtx = createContext(null)
 
 export function TwinProvider({ children }) {
-  const [active, setActive] = useState(null)      // { domain, name } | null
-  const [twin, setTwin] = useState(null)          // simTwin() frame
+  const [active, setActive] = useState(null)      // { domain, name, tenant? } | null
+  const [twin, setTwin] = useState(null)          // simTwin() frame or live state
   const [running, setRunning] = useState(true)
   const [simFault, setSimFault] = useState(null)
+  const [serviceMode, setServiceMode] = useState('stub')  // 'stub' | 'live'
 
   const phase = useRef(0)
   const faultMag = useRef(0)
   const faultRef = useRef(null); faultRef.current = simFault
   const timer = useRef(null)
+  const liveTimer = useRef(null)
+  const activeTenantRef = useRef(null)
+
+  // probe the NextXR service on mount — sets the mode once
+  useEffect(() => {
+    API.twin.health()
+      .then(() => setServiceMode('live'))
+      .catch(() => setServiceMode('stub'))
+  }, [])
 
   // reset the sim ramp whenever the active twin changes
   useEffect(() => {
@@ -26,10 +39,10 @@ export function TwinProvider({ children }) {
     else setTwin(null)
   }, [active])
 
-  // the live ticker — drifts signals, ramps an injected fault in/out
+  // stub ticker — drifts signals, ramps an injected fault in/out
   useEffect(() => {
     if (timer.current) clearInterval(timer.current)
-    if (!active || !running) return
+    if (!active || !running || serviceMode !== 'stub') return
     const tick = () => {
       phase.current = Math.min(1, phase.current + 0.02)
       faultMag.current = Math.max(0, Math.min(1, faultMag.current + (faultRef.current ? 0.15 : -0.3)))
@@ -38,16 +51,60 @@ export function TwinProvider({ children }) {
     tick()
     timer.current = setInterval(tick, 1500)
     return () => timer.current && clearInterval(timer.current)
-  }, [active, running])
+  }, [active, running, serviceMode])
+
+  // live poll — fetches real twin state every 2s when a tenant is attached
+  useEffect(() => {
+    if (liveTimer.current) clearInterval(liveTimer.current)
+    if (!active || !active.tenant || !running || serviceMode !== 'live') return
+    const tenant = active.tenant
+    const fetchState = async () => {
+      try {
+        const data = await API.twin.state(tenant)
+        setTwin(data)
+      } catch {
+        // service dropped out mid-session — fall back to stub frame silently
+        setTwin(prev => prev || simTwin(active.domain, phase.current, faultRef.current, faultMag.current))
+      }
+    }
+    fetchState()
+    liveTimer.current = setInterval(fetchState, 2000)
+    return () => liveTimer.current && clearInterval(liveTimer.current)
+  }, [active, running, serviceMode])
+
+  // openTwin: in live mode, create a real tenant via NextXR; stub on failure
+  const openTwin = useCallback(async (domain, name) => {
+    setSimFault(null); setRunning(true)
+    const label = name || domainMeta(domain).label
+    if (serviceMode === 'live') {
+      try {
+        const res = await API.twin.create(label, domain)
+        const tenant = res.tenant_id || res.id || res.tenant
+        setActive({ domain, name: label, tenant })
+        activeTenantRef.current = tenant
+        // kick off feed on the backend
+        API.twin.feedStart(tenant).catch(() => {})
+        return
+      } catch {
+        // NextXR unreachable — fall through to stub
+      }
+    }
+    setActive({ domain, name: label })
+    activeTenantRef.current = null
+  }, [serviceMode])
 
   const api = useMemo(() => ({
-    active, twin, running, simFault,
-    openTwin: (domain, name) => { setSimFault(null); setRunning(true); setActive({ domain, name: name || domainMeta(domain).label }) },
-    closeTwin: () => { setActive(null); setSimFault(null) },
+    active, twin, running, simFault, serviceMode,
+    openTwin,
+    closeTwin: () => {
+      setActive(null); setSimFault(null)
+      activeTenantRef.current = null
+      if (active?.tenant) API.twin.feedStop().catch(() => {})
+    },
     toggleRunning: () => setRunning(r => !r),
     setRunning, setSimFault,
     injectFault: (f) => setSimFault(f || null),
-  }), [active, twin, running, simFault])
+  }), [active, twin, running, simFault, serviceMode, openTwin])
 
   return <TwinCtx.Provider value={api}>{children}</TwinCtx.Provider>
 }

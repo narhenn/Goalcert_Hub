@@ -3,6 +3,7 @@
 //   • AIDrawer      — one-tap agent actions (diagnose, work order, cascade…)
 //   • RepairTakeover— a cinematic autonomous-repair mode that takes over the screen
 // All three appear only when the Agentic AI module is entitled.
+// Live mode: tries orchestrator endpoints first, falls back to stubs when unreachable.
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon, pct, hColor } from '../lib.jsx'
 import { useTwin } from './twinState.jsx'
@@ -10,24 +11,61 @@ import { useAudit } from './audit.jsx'
 import { stubNarration, stubChatReply, stubProcedure } from '../aiStubs.js'
 import { AGENT_ACTIONS, runAgent } from '../modules/agentic/actions.js'
 import MiniMarkdown from './MiniMarkdown.jsx'
+import API from '../api.js'
 
 const ACCENT = '#7A5CF0'
 
+// try the orchestrator narration endpoint; fall back to local stub
+async function fetchNarration(ctx) {
+  try {
+    const r = await fetch('/api/agents/narrate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ctx),
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!r.ok) throw new Error(`narrate: ${r.status}`)
+    const d = await r.json()
+    return { text: d.text || d.narration || JSON.stringify(d), live: true }
+  } catch {
+    return { text: stubNarration(ctx), live: false }
+  }
+}
+
+// try the orchestrator chat endpoint; fall back to local stub
+async function fetchChat(message, ctx) {
+  try {
+    const r = await fetch('/api/agents/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, context: ctx }),
+      signal: AbortSignal.timeout(6000),
+    })
+    if (!r.ok) throw new Error(`chat: ${r.status}`)
+    const d = await r.json()
+    return { text: d.reply || d.text || JSON.stringify(d), live: true }
+  } catch {
+    return { text: stubChatReply(message, ctx), live: false }
+  }
+}
+
 // ── Always-on co-pilot dock ───────────────────────────────────────────
 export function CoPilotDock() {
-  const { active, twin } = useTwin()
+  const { active, twin, serviceMode } = useTwin()
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
+  const [chatLive, setChatLive] = useState(false)
   const endRef = useRef(null)
   const twinRef = useRef(twin); twinRef.current = twin
 
-  // auto-narration every 20s (local, zero-token)
+  // auto-narration every 20s — tries live endpoint, falls back to stub
   useEffect(() => {
     if (!active) return
-    const tick = () => {
+    const tick = async () => {
       const tw = twinRef.current; if (!tw?.latest) return
-      const text = stubNarration({ domain: active.domain, machineName: active.name, latest: tw.latest, findings: tw.findings || [], health: tw.health })
+      const ctx = { domain: active.domain, machineName: active.name, latest: tw.latest, findings: tw.findings || [], health: tw.health }
+      const { text } = await fetchNarration(ctx)
       setMsgs(prev => [...prev, { role: 'auto', text, ts: new Date().toLocaleTimeString() }].slice(-16))
     }
     tick()
@@ -38,13 +76,17 @@ export function CoPilotDock() {
 
   if (!active) return null
 
-  const send = () => {
+  const send = async () => {
     const m = input.trim(); if (!m) return
     setMsgs(prev => [...prev, { role: 'user', text: m, ts: new Date().toLocaleTimeString() }])
     setInput('')
-    const reply = stubChatReply(m, { domain: active.domain, machineName: active.name, latest: twin?.latest || {}, findings: twin?.findings || [], health: twin?.health })
-    setTimeout(() => setMsgs(prev => [...prev, { role: 'assistant', text: reply, ts: new Date().toLocaleTimeString() }]), 250)
+    const ctx = { domain: active.domain, machineName: active.name, latest: twin?.latest || {}, findings: twin?.findings || [], health: twin?.health }
+    const { text, live } = await fetchChat(m, ctx)
+    setChatLive(live)
+    setMsgs(prev => [...prev, { role: 'assistant', text, ts: new Date().toLocaleTimeString() }])
   }
+
+  const isLive = serviceMode === 'live'
 
   return (
     <div className={`copilot ${open ? 'open' : ''}`}>
@@ -62,7 +104,13 @@ export function CoPilotDock() {
               <div style={{ fontWeight: 700, fontSize: 12.5 }}>AI Co-Pilot</div>
               <div className="hint" style={{ fontSize: 10 }}>watching {active.name}</div>
             </div>
-            <span className="pill pill-green" style={{ fontSize: 8 }}>live</span>
+            <span
+              className={`pill ${isLive ? 'pill-green' : 'pill-surface'}`}
+              style={{ fontSize: 8 }}
+              title={isLive ? 'Connected to live backend' : 'Running in demo mode (stubs)'}
+            >
+              {isLive ? '● live' : '◌ demo'}
+            </span>
             <button className="copilot-x" onClick={() => setOpen(false)}><Icon n="ti-minus" /></button>
           </div>
           <div className="copilot-log">
@@ -88,20 +136,18 @@ export function CoPilotDock() {
 
 // ── One-tap agent actions drawer ──────────────────────────────────────
 export function AIDrawer({ open, onClose, onPickTwin, onRepair }) {
-  const { active, twin } = useTwin()
+  const { active, twin, serviceMode } = useTwin()
   const { log } = useAudit()
   const [busy, setBusy] = useState(null)
   const [result, setResult] = useState(null)   // { label, text }
 
-  const run = (a) => {
+  const run = async (a) => {
     if (!active) return
     setBusy(a.id); setResult(null)
-    setTimeout(() => {
-      const text = runAgent(a.id, { domain: active.domain, machineName: active.name, twin })
-      setResult({ label: a.label, text })
-      log('agentic', a.id, `AI · ${a.label}`, `on ${active.name}`)
-      setBusy(null)
-    }, 450)
+    const text = await runAgent(a.id, { domain: active.domain, machineName: active.name, twin })
+    setResult({ label: a.label, text })
+    log('agentic', a.id, `AI · ${a.label}`, `on ${active.name}`)
+    setBusy(null)
   }
 
   return (
@@ -114,6 +160,13 @@ export function AIDrawer({ open, onClose, onPickTwin, onRepair }) {
             <div style={{ fontWeight: 700, fontFamily: 'var(--display)', fontSize: 15 }}>Agentic AI</div>
             <div className="hint" style={{ fontSize: 11 }}>{active ? active.name : 'no active twin'}</div>
           </div>
+          <span
+            className={`pill ${serviceMode === 'live' ? 'pill-green' : 'pill-surface'}`}
+            style={{ fontSize: 8 }}
+            title={serviceMode === 'live' ? 'Live backend connected' : 'Demo mode — stubs active'}
+          >
+            {serviceMode === 'live' ? '● live' : '◌ demo'}
+          </span>
           <button className="copilot-x" onClick={onClose}><Icon n="ti-x" /></button>
         </div>
 

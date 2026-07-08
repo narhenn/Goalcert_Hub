@@ -1,13 +1,76 @@
 // Overview.jsx — the hub's common dashboard. Always present. Shows who the tenant is,
 // what they've adopted (the composed plan), and the overall/twin health at a glance —
 // then routes into whichever module surfaces are enabled.
-import React from 'react'
+// Includes a live platform health panel that probes all 4 backend services on mount.
+import React, { useEffect, useState } from 'react'
 import { Icon, pct, hColor, HealthRing, domainMeta } from '../../lib.jsx'
 import { MODULE_ORDER, MODULES, planName, useEntitlements } from '../../hub/registry.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import { timeAgo } from '../../hub/util.js'
 import AssetPicker from '../AssetPicker.jsx'
+import API from '../../api.js'
+
+const SERVICE_LABELS = {
+  twin: 'NextXR Digital Twin',
+  agents: 'AUTOMIND Agents',
+  scenario: 'GoalCert Scenarios',
+  drone: 'DroneForce',
+}
+
+function PlatformHealth() {
+  const [health, setHealth] = useState(null)   // null = loading, object = results
+
+  useEffect(() => {
+    API.healthCheck().then(setHealth).catch(() => setHealth({}))
+  }, [])
+
+  const recheck = () => {
+    setHealth(null)
+    API.healthCheck().then(setHealth).catch(() => setHealth({}))
+  }
+
+  const services = Object.keys(SERVICE_LABELS)
+  const onlineCount = health ? services.filter(s => health[s]?.ok).length : 0
+
+  return (
+    <div className="card">
+      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Icon n="ti-server" /> Platform services
+        {health && (
+          <span className={`pill ${onlineCount === services.length ? 'pill-green' : onlineCount === 0 ? 'pill-red' : 'pill-amber'}`}
+            style={{ fontSize: 9 }}>
+            {onlineCount}/{services.length} online
+          </span>
+        )}
+        <button className="btn" style={{ marginLeft: 'auto', padding: '3px 8px', fontSize: 11 }} onClick={recheck}
+          title="Re-check services">
+          <Icon n="ti-refresh" />
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 4 }}>
+        {services.map(key => {
+          const s = health?.[key]
+          const loading = health === null
+          const ok = s?.ok
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                background: loading ? 'var(--muted)' : ok ? 'var(--accent-green)' : 'var(--accent-red)',
+                boxShadow: loading ? 'none' : ok ? '0 0 5px rgba(22,163,74,.6)' : '0 0 5px rgba(225,29,72,.5)',
+              }} />
+              <span style={{ flex: 1 }}>{SERVICE_LABELS[key]}</span>
+              <span className="hint" style={{ fontSize: 10.5 }}>
+                {loading ? 'checking…' : ok ? `HTTP ${s.status}` : (s?.error || 'unreachable')}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export default function Overview({ user, onNav, onOpenAI }) {
   const { enabled, has } = useEntitlements()
@@ -92,6 +155,11 @@ export default function Overview({ user, onNav, onOpenAI }) {
             <div className="empty" style={{ padding: '18px 8px' }}>No active twin. Pick an asset below to bring its health online.</div>
           )}
         </div>
+      </div>
+
+      {/* Platform health */}
+      <div className="section-gap">
+        <PlatformHealth />
       </div>
 
       {/* Quick actions */}
