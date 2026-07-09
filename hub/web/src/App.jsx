@@ -25,6 +25,8 @@ import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
 import ComplianceAudit from './modules/core/ComplianceAudit.jsx'
 import CaseStudy from './modules/core/CaseStudy.jsx'
+import HiveMind from './modules/hivemind/HiveMind.jsx'
+import './modules/hivemind/hivemind.css'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
@@ -176,6 +178,11 @@ function Shell() {
           {route === 'compliance' && <ComplianceAudit />}
           {route === 'casestudy' && <CaseStudy />}
           {route === 'audit' && <Audit />}
+          {route === 'hivemind' && (
+            <div className="panel">
+              <HiveMind />
+            </div>
+          )}
         </div>
       </div>
 

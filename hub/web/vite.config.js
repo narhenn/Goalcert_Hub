@@ -35,6 +35,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/drone/, '/api'),
       },
+      // Hub Backend — HiveMind agent coordination (Claude/Gemini)
+      '/api/hive': {
+        target: 'http://localhost:8095',
+        changeOrigin: true,
+      },
     },
   },
 })

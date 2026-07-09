@@ -34,6 +34,13 @@ export const MODULES = {
     layer: true, // contributes an overlay, not sidebar tabs
     features: ['Always-on co-pilot', 'Diagnosis & analysis agents', 'Work-order generation', 'Cascade analysis', 'Repair-with-AI takeover'],
   },
+  hivemind: {
+    id: 'hivemind', label: 'AUTOMIND Hive', short: 'Hive', icon: 'ti-hexagon',
+    accent: '#7A5CF0', accentSoft: 'rgba(122,92,240,.12)',
+    role: '8 specialist agents that coordinate on one brief',
+    blurb: 'Give the hive one brief and 8 specialist agents coordinate in real-time: CEO, Chief Strategy, 2 Finance, 2 Marketing, 2 Sales — producing executive briefs, strategy reports, financial analysis, campaign plans, pipeline reports and client proposals.',
+    features: ['8 named agent personas', 'CEO synthesis from all outputs', 'Business strategy + finance + sales + marketing', 'Hex hive coordination view', 'One-click approve & export'],
+  },
 }
 export const MODULES_EXT = {
   frontline: {
@@ -53,7 +60,7 @@ export const MODULES_EXT = {
 }
 // merge extended modules into main
 Object.assign(MODULES, MODULES_EXT)
-export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'frontline', 'supervisor']
+export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'hivemind', 'frontline', 'supervisor']
 
 // ── Sidebar navigation, tagged by the owning module ──────────────────
 // module: 'core'  → always present (the hub's own cross-cutting surface)
@@ -67,6 +74,7 @@ export const NAV = [
   { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin' },
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
+  { id: 'hivemind', label: 'AUTOMIND Hive', icon: 'ti-hexagon', module: 'hivemind' },
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },
