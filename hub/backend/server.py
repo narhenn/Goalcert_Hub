@@ -169,6 +169,7 @@ class AgentRunRequest(BaseModel):
     facility: Optional[str] = None      # company/facility name
     domain: Optional[str] = None        # industry vertical
     provider: str = "claude"            # "claude" or "gemini"
+    twin_context: Optional[str] = None  # live digital twin telemetry
 
 
 class AgentRunResponse(BaseModel):
@@ -194,6 +195,8 @@ async def run_agent(req: AgentRunRequest):
         user_msg += f"\nCOMPANY: {req.facility}"
     if req.domain:
         user_msg += f"\nINDUSTRY: {req.domain}"
+    if req.twin_context:
+        user_msg += f"\n\nLIVE DIGITAL TWIN DATA:\n{req.twin_context}"
     if req.upstream_context:
         user_msg += f"\n\nCONTEXT FROM OTHER AGENTS:\n{req.upstream_context}"
     # For research roles, do a live web search and inject results
@@ -353,6 +356,8 @@ async def stream_agent(req: AgentRunRequest):
         user_msg += f"\nCOMPANY: {req.facility}"
     if req.domain:
         user_msg += f"\nINDUSTRY: {req.domain}"
+    if req.twin_context:
+        user_msg += f"\n\nLIVE DIGITAL TWIN DATA:\n{req.twin_context}"
     if req.upstream_context:
         user_msg += f"\n\nCONTEXT FROM OTHER AGENTS:\n{req.upstream_context}"
 

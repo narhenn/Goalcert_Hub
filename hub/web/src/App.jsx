@@ -88,6 +88,13 @@ function Shell() {
   // if the current route's module was just disabled, fall back to Overview
   useEffect(() => { if (!nav.find(n => n.id === route)) setRoute('overview') }, [ent.enabled]) // eslint-disable-line
 
+  // listen for copilot slash-command navigation events
+  useEffect(() => {
+    const handler = (e) => { if (e.detail?.route) go(e.detail.route) }
+    window.addEventListener('copilot:nav', handler)
+    return () => window.removeEventListener('copilot:nav', handler)
+  }, []) // eslint-disable-line
+
   const toggleTheme = () => {
     const t = document.documentElement.getAttribute('data-theme') === 'dark' ? '' : 'dark'
     document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); force(x => x + 1)

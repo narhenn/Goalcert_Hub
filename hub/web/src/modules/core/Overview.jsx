@@ -10,6 +10,7 @@ import { useAudit } from '../../hub/audit.jsx'
 import { timeAgo } from '../../hub/util.js'
 import AssetPicker from '../AssetPicker.jsx'
 import API from '../../api.js'
+import { loadHistory } from '../hivemind/history.js'
 
 const SERVICE_LABELS = {
   twin: 'NextXR Digital Twin',
@@ -67,6 +68,58 @@ function PlatformHealth() {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function HiveMindStats({ onNav }) {
+  const history = loadHistory()
+  const totalBriefs = history.length
+  const totalTokens = history.reduce((a, h) => a + (h.totalTokens || 0), 0)
+  const lastBrief = history[0]
+
+  return (
+    <div className="card" style={{ cursor: totalBriefs > 0 ? 'pointer' : 'default' }} onClick={() => totalBriefs > 0 && onNav('hivemind')}>
+      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ width: 22, height: 22, borderRadius: '30%', background: '#7A5CF0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>
+          <Icon n="ti-hexagon" />
+        </span>
+        AUTOMIND Hive
+        {totalBriefs > 0 && (
+          <span className="pill pill-purple" style={{ fontSize: 9 }}>{totalBriefs} brief{totalBriefs !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+      {totalBriefs === 0 ? (
+        <div className="empty" style={{ padding: '10px 0', fontSize: 12 }}>No briefs run yet — launch the hive to see stats here.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{totalBriefs}</div>
+              <div className="hint" style={{ fontSize: 10 }}>briefs run</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{totalTokens > 0 ? (totalTokens / 1000).toFixed(1) + 'K' : '—'}</div>
+              <div className="hint" style={{ fontSize: 10 }}>tokens used</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{lastBrief?.agentsUsed?.length || 0}</div>
+              <div className="hint" style={{ fontSize: 10 }}>last agents</div>
+            </div>
+          </div>
+          {lastBrief && (
+            <div style={{ fontSize: 11.5, color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: 8, lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text)' }}>Last brief:</span>{' '}
+              {(lastBrief.brief || 'Untitled').slice(0, 80)}{(lastBrief.brief || '').length > 80 ? '…' : ''}
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{ marginTop: 10 }}>
+        <button className="btn" style={{ fontSize: 11, padding: '4px 10px', color: '#7A5CF0' }} onClick={e => { e.stopPropagation(); onNav('hivemind') }}>
+          <Icon n="ti-arrow-right" /> Open Hive
+        </button>
       </div>
     </div>
   )
@@ -157,9 +210,10 @@ export default function Overview({ user, onNav, onOpenAI }) {
         </div>
       </div>
 
-      {/* Platform health */}
-      <div className="section-gap">
+      {/* Platform health + AUTOMIND Hive stats */}
+      <div className="grid-2 section-gap">
         <PlatformHealth />
+        <HiveMindStats onNav={onNav} />
       </div>
 
       {/* Quick actions */}

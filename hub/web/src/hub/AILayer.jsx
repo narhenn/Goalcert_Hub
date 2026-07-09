@@ -76,10 +76,33 @@ export function CoPilotDock() {
 
   if (!active) return null
 
+  const SLASH_COMMANDS = {
+    '/strategy':  { nav: 'hivemind', label: 'Strategy Brief', msg: 'Launching Strategy Brief... Navigate to AUTOMIND Hive to see your agents at work.' },
+    '/sales':     { nav: 'hivemind', label: 'Sales Package', msg: 'Launching Sales Package... Navigate to AUTOMIND Hive to see your agents at work.' },
+    '/finance':   { nav: 'hivemind', label: 'Finance Review', msg: 'Launching Finance Review... Navigate to AUTOMIND Hive to see your agents at work.' },
+    '/marketing': { nav: 'hivemind', label: 'Campaign Launch', msg: 'Launching Campaign Launch... Navigate to AUTOMIND Hive to see your agents at work.' },
+    '/hive':      { nav: 'hivemind', label: 'Full Brief', msg: 'Launching AUTOMIND Hive full brief... Navigate to AUTOMIND Hive to see all 8 agents at work.' },
+    '/help': {
+      nav: null,
+      msg: 'Available commands:\n/strategy — Strategy Brief (market + competitive + financial)\n/sales — Sales Package (pipeline + proposals)\n/finance — Finance Review (P&L + risk)\n/marketing — Campaign Launch (research + campaigns)\n/hive — Full Business Review (all 8 agents)\n/help — show this help',
+    },
+  }
+
   const send = async () => {
     const m = input.trim(); if (!m) return
     setMsgs(prev => [...prev, { role: 'user', text: m, ts: new Date().toLocaleTimeString() }])
     setInput('')
+
+    // slash command detection
+    const cmd = SLASH_COMMANDS[m.split(' ')[0].toLowerCase()]
+    if (cmd) {
+      setMsgs(prev => [...prev, { role: 'assistant', text: cmd.msg, ts: new Date().toLocaleTimeString() }])
+      if (cmd.nav) {
+        window.dispatchEvent(new CustomEvent('copilot:nav', { detail: { route: cmd.nav } }))
+      }
+      return
+    }
+
     const ctx = { domain: active.domain, machineName: active.name, latest: twin?.latest || {}, findings: twin?.findings || [], health: twin?.health }
     const { text, live } = await fetchChat(m, ctx)
     setChatLive(live)
@@ -125,7 +148,7 @@ export function CoPilotDock() {
           </div>
           <div className="copilot-input">
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder={`Ask about ${active.name}…`} />
+              placeholder={`Ask about ${active.name}… or /strategy /sales /help`} />
             <button className="btn btn-primary" style={{ padding: '7px 10px' }} onClick={send}><Icon n="ti-send" /></button>
           </div>
         </div>

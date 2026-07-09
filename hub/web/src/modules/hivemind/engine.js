@@ -270,6 +270,21 @@ export async function runHiveBrief({ brief, agentIds, context, onAgentStart, onA
       .map(([aid, d]) => `[${PERSONA_MAP[aid]?.title || aid}]\n${(d.content || '').slice(0, 800)}`)
     const upstreamContext = upstreamParts.length > 0 ? upstreamParts.join('\n\n') : null
 
+    // Build twin context string if present
+    let twinContext = null
+    if (context.diagnostics && Object.keys(context.diagnostics).length > 0) {
+      const tw = context.diagnostics
+      const parts = []
+      if (tw.health != null) parts.push(`Health: ${Math.round(tw.health * 100)}%`)
+      if (tw.latest && Object.keys(tw.latest).length > 0) {
+        parts.push(`Sensor readings: ${Object.entries(tw.latest).slice(0, 8).map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(2) : v}`).join(', ')}`)
+      }
+      if (tw.findings && tw.findings.length > 0) {
+        parts.push(`Active faults (${tw.findings.length}): ${tw.findings.slice(0, 3).map(f => f.displayName || f.id || f).join(', ')}`)
+      }
+      if (parts.length > 0) twinContext = parts.join('\n')
+    }
+
     // try SSE streaming first, then regular API, then stub
     let deliverable
     try {
@@ -284,6 +299,7 @@ export async function runHiveBrief({ brief, agentIds, context, onAgentStart, onA
           facility: context.facility || null,
           domain: context.domain || null,
           provider: context.provider || 'claude',
+          twin_context: twinContext,
         }),
       })
       if (resp.ok && resp.headers.get('content-type')?.includes('text/event-stream')) {
@@ -346,6 +362,7 @@ export async function runHiveBrief({ brief, agentIds, context, onAgentStart, onA
             facility: context.facility || null,
             domain: context.domain || null,
             provider: context.provider || 'claude',
+            twin_context: twinContext,
           }),
           signal: AbortSignal.timeout(30000),
         })

@@ -74,6 +74,9 @@ export default function HiveMind() {
   const [approved, setApproved] = useState(new Set())
   const [exported, setExported] = useState(new Set())
 
+  // Agent follow-up chat (visible in Approve step)
+  const [chatMessages, setChatMessages] = useState([])
+
   // Keep twin context in sync with active asset
   useEffect(() => {
     if (active) {
@@ -196,6 +199,7 @@ export default function HiveMind() {
             provider={provider} setProvider={setProvider}
             onBack={() => setStep('onboard')}
             onRun={runBrief}
+            twin={twin}
           />
         )}
 
@@ -215,7 +219,12 @@ export default function HiveMind() {
             totalCount={selectedAgents.length}
             onApprove={approveDeliverable}
             onExport={exportDeliverable}
-            onNewBrief={() => { setStep('brief'); setAgentStates({}); setDeliverables({}); setStreamingContent({}) }}
+            onNewBrief={() => { setStep('brief'); setAgentStates({}); setDeliverables({}); setStreamingContent({}); setChatMessages([]) }}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
+            facilityName={facilityName}
+            domain={domain}
+            provider={provider}
           />
         )}
       </div>
@@ -413,7 +422,7 @@ const AGENT_PRESETS = [
   { id: 'marketing', label: 'Campaign Launch', icon: 'ti-speakerphone', agents: MARKETING_AGENTS, description: 'Market trends, audience insights, campaign plan with 4-week content calendar.' },
 ]
 
-function BriefStep({ briefText, setBriefText, selectedPreset, setSelectedPreset, selectedAgents, setSelectedAgents, provider, setProvider, onBack, onRun }) {
+function BriefStep({ briefText, setBriefText, selectedPreset, setSelectedPreset, selectedAgents, setSelectedAgents, provider, setProvider, onBack, onRun, twin }) {
   const canRun = briefText.trim().length > 0 || selectedPreset !== null
 
   const handlePreset = (preset) => {
@@ -437,6 +446,13 @@ function BriefStep({ briefText, setBriefText, selectedPreset, setSelectedPreset,
       <div className="hm-step-sub">
         Describe the operational situation in one sentence. The agents will coordinate to produce every relevant deliverable.
       </div>
+
+      {twin && Object.keys(twin).length > 0 && (
+        <div className="hm-notice hm-notice-ok" style={{ background: 'rgba(122,92,240,.08)', borderColor: 'rgba(122,92,240,.2)', marginBottom: 10 }}>
+          <Icon n="ti-hexagon-filled" />
+          <b>Twin data attached</b> — agents will receive live sensor readings, health ({twin.health != null ? Math.round(twin.health * 100) + '%' : 'n/a'}) and {(twin.findings || []).length} active fault{(twin.findings || []).length !== 1 ? 's' : ''}.
+        </div>
+      )}
 
       <div className="hm-brief-textarea-wrap">
         <textarea
@@ -510,6 +526,7 @@ function BuildApproveStep({
   step, personas, selectedAgents, agentStates, deliverables, streamingContent, approved, exported,
   running, runError, doneCount, totalCount,
   onApprove, onExport, onNewBrief,
+  chatMessages, setChatMessages, facilityName, domain, provider,
 }) {
   return (
     <div className="hm-build-layout">
@@ -549,7 +566,7 @@ function BuildApproveStep({
         })()}
       </div>
 
-      {/* Right: deliverable cards */}
+      {/* Right: deliverable cards + follow-up chat */}
       <div className="hm-deliverables-panel">
         {runError && (
           <div className="hm-error-banner">
@@ -569,6 +586,142 @@ function BuildApproveStep({
             onExport={() => onExport(p.id)}
           />
         ))}
+        {step === 'approve' && doneCount > 0 && (
+          <AgentChat
+            personas={personas}
+            deliverables={deliverables}
+            chatMessages={chatMessages}
+            setChatMessages={setChatMessages}
+            facilityName={facilityName}
+            domain={domain}
+            provider={provider}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Agent follow-up chat ──────────────────────────────────────────────
+function AgentChat({ personas, deliverables, chatMessages, setChatMessages, facilityName, domain, provider }) {
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const endRef = useRef(null)
+
+  useEffect(() => {
+    if (endRef.current) endRef.current.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  const send = async () => {
+    const msg = input.trim()
+    if (!msg || loading) return
+    setInput('')
+
+    // parse agent name from message — match against persona names or first names
+    let targetPersona = personas.find(p => {
+      const lower = msg.toLowerCase()
+      return lower.includes(p.name.toLowerCase()) || lower.includes(p.name.split(' ')[0].toLowerCase())
+    }) || personas.find(p => p.role === 'ceo') || personas[0]
+
+    setChatMessages(prev => [...prev, { from: 'user', text: msg, ts: new Date() }])
+    setLoading(true)
+
+    // build upstream context from all deliverables
+    const upstreamParts = Object.entries(deliverables)
+      .map(([aid, d]) => `[${personas.find(p => p.id === aid)?.name || aid}]\n${(d?.content || '').slice(0, 600)}`)
+    const upstreamContext = upstreamParts.join('\n\n')
+
+    try {
+      const resp = await fetch('/api/hive/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: targetPersona.role,
+          brief: msg,
+          upstream_context: upstreamContext || null,
+          facility: facilityName || null,
+          domain: domain || null,
+          provider: provider || 'claude',
+        }),
+        signal: AbortSignal.timeout(30000),
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        setChatMessages(prev => [...prev, { from: targetPersona.id, agentName: targetPersona.name, text: data.content || '', ts: new Date() }])
+      } else {
+        throw new Error(`HTTP ${resp.status}`)
+      }
+    } catch (e) {
+      setChatMessages(prev => [...prev, { from: targetPersona.id, agentName: targetPersona.name, text: `Sorry, I couldn't connect right now. (${e.message})`, ts: new Date() }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface2)', overflow: 'hidden', marginTop: 8 }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
+        <Icon n="ti-message-circle" style={{ color: '#7A5CF0' }} />
+        Ask an agent a follow-up
+        <span className="hint" style={{ fontWeight: 400, fontSize: 11 }}>— mention their name or ask Elena by default</span>
+      </div>
+
+      {chatMessages.length > 0 && (
+        <div style={{ maxHeight: 320, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {chatMessages.map((m, i) => {
+            const isUser = m.from === 'user'
+            const agentColor = personas.find(p => p.id === m.from)?.color || '#7A5CF0'
+            return (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: 3 }}>
+                {!isUser && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: agentColor, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    {m.agentName}
+                  </span>
+                )}
+                <div style={{
+                  maxWidth: '88%', padding: '8px 12px', borderRadius: isUser ? '12px 12px 2px 12px' : '2px 12px 12px 12px',
+                  background: isUser ? '#7A5CF0' : 'var(--surface)',
+                  color: isUser ? '#fff' : 'var(--text)',
+                  fontSize: 12.5, lineHeight: 1.55,
+                  border: isUser ? 'none' : '1px solid var(--border)',
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {m.text}
+                </div>
+                <span style={{ fontSize: 9, color: 'var(--hint)' }}>{m.ts.toLocaleTimeString()}</span>
+              </div>
+            )
+          })}
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--hint)' }}>
+              <span className="spinner" style={{ width: 12, height: 12 }} /> thinking…
+            </div>
+          )}
+          <div ref={endRef} />
+        </div>
+      )}
+
+      <div style={{ padding: '10px 14px', display: 'flex', gap: 8, borderTop: chatMessages.length > 0 ? '1px solid var(--border)' : 'none' }}>
+        <input
+          style={{
+            flex: 1, background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: '8px 12px', fontSize: 12.5, color: 'var(--text)',
+            outline: 'none',
+          }}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+          placeholder='e.g. "Elena, what is the biggest risk?" or "Daniel, refine the strategy"'
+          disabled={loading}
+        />
+        <button
+          className="hm-cta"
+          style={{ padding: '8px 14px', fontSize: 12 }}
+          onClick={send}
+          disabled={!input.trim() || loading}
+        >
+          <Icon n="ti-send" />
+        </button>
       </div>
     </div>
   )
