@@ -35,7 +35,25 @@ export const MODULES = {
     features: ['Always-on co-pilot', 'Diagnosis & analysis agents', 'Work-order generation', 'Cascade analysis', 'Repair-with-AI takeover'],
   },
 }
-export const MODULE_ORDER = ['twin', 'scenario', 'agentic']
+export const MODULES_EXT = {
+  frontline: {
+    id: 'frontline', label: 'Frontline Ops', short: 'Frontline', icon: 'ti-clipboard-check',
+    accent: '#7c3aed', accentSoft: 'rgba(124,58,237,.12)',
+    role: 'Guided shift flow for operators',
+    blurb: 'Assigned-to-me landing, 8-step certified flow, operational readiness score, AR procedure overlay and one-tap expert.',
+    features: ['Assigned to me today', '8-step frontline flow', 'Readiness score', 'AR overlay', 'One-tap expert'],
+  },
+  supervisor: {
+    id: 'supervisor', label: 'Supervisor', short: 'Supervisor', icon: 'ti-users',
+    accent: '#0891b2', accentSoft: 'rgba(8,145,178,.12)',
+    role: 'Team readiness and shift oversight',
+    blurb: 'Readiness heatmap by team, agentic recommendations, one-tap reassign/approve, shift close-out summary.',
+    features: ['Readiness heatmap', 'Agentic recommendations', 'One-tap actions', 'Shift close-out'],
+  },
+}
+// merge extended modules into main
+Object.assign(MODULES, MODULES_EXT)
+export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'frontline', 'supervisor']
 
 // ── Sidebar navigation, tagged by the owning module ──────────────────
 // module: 'core'  → always present (the hub's own cross-cutting surface)
@@ -49,6 +67,9 @@ export const NAV = [
   { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin' },
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
+  { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
+  { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
+  { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },
   { id: 'audit', label: 'Audit Trail', icon: 'ti-history', module: 'core' },
 ]
 
@@ -100,6 +121,6 @@ export function useEntitlements() {
 // A short human name for the composed plan, e.g. "Twin + Agents" or "Full Suite".
 export function planName(enabled) {
   if (enabled.length === 0) return 'No modules'
-  if (enabled.length === 3) return 'Full Suite'
+  if (enabled.length >= 4) return 'Full Suite'
   return enabled.map(m => MODULES[m].short).join(' + ')
 }

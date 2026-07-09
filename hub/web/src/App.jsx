@@ -20,6 +20,11 @@ import BuildTwin from './modules/twin/BuildTwin.jsx'
 import Prediction from './modules/twin/Prediction.jsx'
 import Scenario from './modules/scenario/Scenario.jsx'
 import Trainer from './modules/scenario/Trainer.jsx'
+import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
+import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
+import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
+import { ReadinessProvider } from './hub/readinessState.jsx'
+import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 
 // Mocked authenticated tenant (a real hub resolves this from SSO at the edge).
 const USER = { email: 'tejeshachutaa19@gmail.com', tenant: 'Acme Industrial' }
@@ -30,10 +35,26 @@ export default function App() {
     <EntitlementProvider>
       <AuditProvider>
         <TwinProvider>
-          <Root />
+          <FrontlineWrapper>
+            <Root />
+          </FrontlineWrapper>
         </TwinProvider>
       </AuditProvider>
     </EntitlementProvider>
+  )
+}
+
+// Wrap children with Readiness + Frontline providers (need twin context)
+function FrontlineWrapper({ children }) {
+  const { active } = useTwin()
+  const domain = active?.domain || 'edm-machine'
+  const twin = active?.twin
+  return (
+    <ReadinessProvider domain={domain}>
+      <FrontlineProvider domain={domain} twin={twin}>
+        {children}
+      </FrontlineProvider>
+    </ReadinessProvider>
   )
 }
 
@@ -46,7 +67,9 @@ function Root() {
 function Shell() {
   const ent = useEntitlements()
   const { active, twin, openTwin } = useTwin()
-  const [route, setRoute] = useState('overview')
+  const frontline = useFrontline()
+  // default to 'assigned' if frontline module is enabled
+  const [route, setRoute] = useState(ent.has('frontline') ? 'assigned' : 'overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiDrawer, setAiDrawer] = useState(false)
   const [takeover, setTakeover] = useState(false)
@@ -142,6 +165,9 @@ function Shell() {
                 <div className="panel-subtitle">{active.name} · interactive guided-repair simulator with scoring</div>
               </div></div><Trainer /></div>
             : <NeedAsset onNav={go} />)}
+          {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
+          {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
+          {route === 'supervisor' && <SupervisorDashboard />}
           {route === 'audit' && <Audit />}
         </div>
       </div>
