@@ -23,6 +23,9 @@ import Trainer from './modules/scenario/Trainer.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
+import ComplianceAudit from './modules/core/ComplianceAudit.jsx'
+import CaseStudy from './modules/core/CaseStudy.jsx'
+import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 
@@ -34,11 +37,13 @@ export default function App() {
   return (
     <EntitlementProvider>
       <AuditProvider>
+        <KpiProvider>
         <TwinProvider>
           <FrontlineWrapper>
             <Root />
           </FrontlineWrapper>
         </TwinProvider>
+        </KpiProvider>
       </AuditProvider>
     </EntitlementProvider>
   )
@@ -168,6 +173,8 @@ function Shell() {
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
           {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
           {route === 'supervisor' && <SupervisorDashboard />}
+          {route === 'compliance' && <ComplianceAudit />}
+          {route === 'casestudy' && <CaseStudy />}
           {route === 'audit' && <Audit />}
         </div>
       </div>

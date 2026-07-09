@@ -70,6 +70,7 @@ export const NAV = [
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },
+  { id: 'casestudy', label: 'Case Study', icon: 'ti-presentation-analytics', module: 'core' },
   { id: 'audit', label: 'Audit Trail', icon: 'ti-history', module: 'core' },
 ]
 
