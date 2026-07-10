@@ -6,6 +6,7 @@ import React, { useState, useMemo } from 'react'
 import { Icon, domainMeta } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
+import { useLoop } from '../../hub/loopState.jsx'
 import ReadinessGauge from '../frontline/ReadinessGauge.jsx'
 
 // -- mocked team data (12 operators) --
@@ -47,10 +48,23 @@ export default function SupervisorDashboard() {
     return r.slice(0, 5)
   }, [])
 
+  const loop = useLoop()
+
   const doAction = (action, op) => {
     const msg = `${action}: ${op.name}`
     setActionLog(prev => [{ ts: new Date(), msg }, ...prev].slice(0, 10))
     audit.log('supervisor', action, msg)
+    // one-tap actions feed the loop bus
+    const emits = {
+      reassign: ['assess', `Reassigned ${op.name}`, `Readiness ${op.score}% matched to a better-fit task.`],
+      push_training: ['train', `Refresher pushed to ${op.name}`, `Readiness ${op.score}% — micro-lesson queued for next login.`],
+      training: ['train', `Refresher pushed to ${op.name}`, `Readiness ${op.score}% below threshold — recommendation accepted.`],
+      cert: ['assess', `Recertification scheduled — ${op.name}`, `Certification ${op.certDays} days old, nearing expiry.`],
+      ar_call: ['assist', `AR call opened with ${op.name}`, 'Live session visible on the supervisor board.'],
+      positive: ['improve', `${op.name} flagged for lead role`, `Top performer at ${op.score}% readiness.`],
+    }
+    const e = emits[action]
+    if (e) loop.emit(e[0], { summary: e[1], detail: e[2], module: 'agentic', persona: 'supervisor' })
   }
 
   // -- KPIs --

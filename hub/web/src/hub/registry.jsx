@@ -74,11 +74,15 @@ export const NAV = [
   { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin' },
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
+  { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },
   { id: 'hivemind', label: 'AUTOMIND Hive', icon: 'ti-hexagon', module: 'hivemind' },
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },
   { id: 'casestudy', label: 'Case Study', icon: 'ti-presentation-analytics', module: 'core' },
+  { id: 'ops', label: 'Ops Readiness', icon: 'ti-gauge', module: 'core' },
+  { id: 'admin', label: 'Admin Console', icon: 'ti-settings', module: 'core' },
+  { id: 'loop', label: 'The Loop', icon: 'ti-refresh', module: 'core' },
   { id: 'audit', label: 'Audit Trail', icon: 'ti-history', module: 'core' },
 ]
 

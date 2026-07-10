@@ -1,15 +1,23 @@
-// App.jsx — the Integration Hub shell. Authenticates a tenant (mocked), reads its
-// entitlements, and composes exactly that UI: the sidebar, the panels and the AI
-// layer are all gated by which modules are enabled. Flip a module in the switcher
-// and the whole product recomposes.
+// App.jsx — the Integration Hub shell, now persona-composed.
+//
+// Two axes compose the UI: entitlements (which platforms the tenant adopted)
+// × persona (which lens the user works through). Onboarding picks the modules,
+// the persona picker picks the lens, and the shell renders exactly that
+// intersection — nav grouped by platform, a persona-owned home view, and the
+// agentic layer only where the persona's policy allows it.
 import React, { useEffect, useState } from 'react'
 import { Logo, Icon, pct } from './lib.jsx'
-import { EntitlementProvider, useEntitlements, navFor, MODULES, planName } from './hub/registry.jsx'
+import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
+import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
+import { LoopProvider } from './hub/loopState.jsx'
 import { TwinProvider, useTwin } from './hub/twinState.jsx'
 import { AuditProvider } from './hub/audit.jsx'
 import { nameFromEmail } from './hub/util.js'
 import Onboarding from './hub/Onboarding.jsx'
+import PersonaPicker from './hub/PersonaPicker.jsx'
+import PersonaSwitcher from './hub/PersonaSwitcher.jsx'
 import Switcher from './hub/Switcher.jsx'
+import LoopBoard from './hub/LoopBoard.jsx'
 import { CoPilotDock, AIDrawer, RepairTakeover } from './hub/AILayer.jsx'
 import Overview from './modules/core/Overview.jsx'
 import Audit from './modules/core/Audit.jsx'
@@ -25,6 +33,9 @@ import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
 import ComplianceAudit from './modules/core/ComplianceAudit.jsx'
 import CaseStudy from './modules/core/CaseStudy.jsx'
+import ContentStudio from './modules/lnd/ContentStudio.jsx'
+import OpsReadiness from './modules/coo/OpsReadiness.jsx'
+import AdminConsole from './modules/admin/AdminConsole.jsx'
 import HiveMind from './modules/hivemind/HiveMind.jsx'
 import './modules/hivemind/hivemind.css'
 import { KpiProvider } from './hub/kpiState.jsx'
@@ -35,18 +46,27 @@ import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 const USER = { email: 'tejeshachutaa19@gmail.com', tenant: 'Acme Industrial' }
 USER.name = nameFromEmail(USER.email)
 
+// platform-owned nav modules (gated by entitlement + persona policy);
+// everything else is persona workspace or hub chrome.
+const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind']
+const HUB_IDS = ['loop', 'audit']
+
 export default function App() {
   return (
     <EntitlementProvider>
-      <AuditProvider>
-        <KpiProvider>
-        <TwinProvider>
-          <FrontlineWrapper>
-            <Root />
-          </FrontlineWrapper>
-        </TwinProvider>
-        </KpiProvider>
-      </AuditProvider>
+      <PersonaProvider>
+        <AuditProvider>
+          <LoopProvider>
+            <KpiProvider>
+              <TwinProvider>
+                <FrontlineWrapper>
+                  <Root />
+                </FrontlineWrapper>
+              </TwinProvider>
+            </KpiProvider>
+          </LoopProvider>
+        </AuditProvider>
+      </PersonaProvider>
     </EntitlementProvider>
   )
 }
@@ -67,26 +87,56 @@ function FrontlineWrapper({ children }) {
 
 function Root() {
   const { onboarded } = useEntitlements()
+  const { persona } = usePersona()
   useEffect(() => { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t) }, [])
-  return onboarded ? <Shell /> : <Onboarding />
+  if (!onboarded) return <Onboarding />
+  if (!persona) return <PersonaPicker />
+  return <Shell />
+}
+
+// resolve the persona's visible nav: persona.nav ∩ entitlements ∩ policy
+function visibleNavFor(persona, ent, allows) {
+  return persona.nav
+    .map(id => NAV.find(n => n.id === id))
+    .filter(Boolean)
+    .filter(it => {
+      if (HUB_IDS.includes(it.id)) return true
+      if (PLATFORM_MODULES.includes(it.module)) {
+        if (!ent.has(it.module)) return false
+        if (it.module === 'hivemind') return true // no per-persona policy for the hive
+        return allows(persona.id, it.module)
+      }
+      return true // persona workspace surfaces
+    })
 }
 
 function Shell() {
   const ent = useEntitlements()
+  const { persona, allows, clearPersona } = usePersona()
   const { active, twin, openTwin } = useTwin()
   const frontline = useFrontline()
-  // default to 'assigned' if frontline module is enabled
-  const [route, setRoute] = useState(ent.has('frontline') ? 'assigned' : 'overview')
+  const [route, setRoute] = useState(() => persona.defaultRoute)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiDrawer, setAiDrawer] = useState(false)
   const [takeover, setTakeover] = useState(false)
   const [, force] = useState(0)
 
-  const nav = navFor(ent.enabled)
-  const hasAgentic = ent.has('agentic')
+  const nav = visibleNavFor(persona, ent, allows)
+  const navIds = nav.map(n => n.id)
+  const hasAgentic = ent.has('agentic') && allows(persona.id, 'agentic')
 
-  // if the current route's module was just disabled, fall back to Overview
-  useEffect(() => { if (!nav.find(n => n.id === route)) setRoute('overview') }, [ent.enabled]) // eslint-disable-line
+  // persona switched → land on its home surface
+  useEffect(() => {
+    setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
+    setAiDrawer(false); setTakeover(false)
+  }, [persona.id]) // eslint-disable-line
+
+  // if the current route's surface was just gated away, fall back home
+  // ('flow' and 'overview' are reachable without a nav entry)
+  useEffect(() => {
+    if (!navIds.includes(route) && route !== 'flow' && route !== 'overview')
+      setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
+  }, [ent.enabled, nav.length]) // eslint-disable-line
 
   // listen for copilot slash-command navigation events
   useEffect(() => {
@@ -102,16 +152,17 @@ function Shell() {
   const go = (r) => { setRoute(r); setSidebarOpen(false) }
   const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
 
-  // sidebar sections, gated by entitlement
+  // sidebar: persona workspace first, then the persona's platform surfaces, then hub
   const sections = [
-    { label: 'Platform', items: nav.filter(n => n.id === 'overview') },
-    { label: MODULES.twin.label, items: nav.filter(n => n.module === 'twin'), mc: MODULES.twin.accent },
-    { label: MODULES.scenario.label, items: nav.filter(n => n.module === 'scenario'), mc: MODULES.scenario.accent },
-    { label: 'Hub', items: nav.filter(n => n.id === 'audit') },
+    { label: `${persona.short} workspace`, items: nav.filter(it => !HUB_IDS.includes(it.id) && !PLATFORM_MODULES.includes(it.module)), mc: persona.accent },
+    { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin'), mc: MODULES.twin.accent },
+    { label: MODULES.scenario.label, items: nav.filter(it => it.module === 'scenario'), mc: MODULES.scenario.accent },
+    { label: MODULES.hivemind.label, items: nav.filter(it => it.module === 'hivemind'), mc: MODULES.hivemind.accent },
+    { label: 'Hub', items: nav.filter(it => HUB_IDS.includes(it.id)) },
   ].filter(s => s.items.length)
 
   return (
-    <div className="app-root">
+    <div className="app-root" style={{ '--pa': persona.accent, '--pa-soft': persona.accentSoft }}>
       <div className="topbar">
         <button className="btn btn-ghost mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Icon n="ti-menu-2" /></button>
         <span className="brand"><Logo size={32} />
@@ -120,10 +171,11 @@ function Shell() {
             <span className="brand-tag">Integration Hub</span>
           </span>
         </span>
-        <Switcher />
+        <PersonaSwitcher />
+        {persona.id === 'admin' && <Switcher />}
         <div className="crumb">{active
           ? <><b>{active.name}</b> · live twin</>
-          : <>Composed platform · {planName(ent.enabled)}</>}</div>
+          : <>{persona.done}</>}</div>
 
         {hasAgentic && (
           <button className="topbar-ai" onClick={() => setAiDrawer(true)} title="Agentic AI actions">
@@ -143,6 +195,27 @@ function Shell() {
       <div className="body">
         {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
         <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+          {/* persona identity — who this UI is composed for */}
+          <div className="sb-persona" title={`${persona.label} — ${persona.entry}`}
+            style={{ '--mc': persona.accent, '--mc-soft': persona.accentSoft }}>
+            <span className="sb-persona-ic"><Icon n={persona.icon} /></span>
+            <span className="sb-persona-body">
+              <span className="sb-persona-label">{persona.label}</span>
+              <span className="sb-persona-entry">{persona.entry}</span>
+            </span>
+            <button className="sb-persona-switch" onClick={clearPersona} title="Change persona">
+              <Icon n="ti-switch-horizontal" />
+            </button>
+          </div>
+          {/* the persona's segment of the loop */}
+          <div className="sb-stages" title={`Loop stages this persona runs: ${persona.stages.join(' → ') || 'operates the rails'}`}>
+            {LOOP_STAGES.map(s => (
+              <span key={s.id} className={`sb-stage ${persona.stages.includes(s.id) ? 'on' : ''}`}
+                style={{ '--mc': persona.accent }} />
+            ))}
+            <span className="sb-stages-label">{persona.stages.length ? `${persona.stages.length}/7 loop stages` : 'runs the rails'}</span>
+          </div>
+
           <div className="sidebar-nav">
             {sections.map((sec, si) => (
               <div key={si}>
@@ -151,6 +224,7 @@ function Shell() {
                   <a key={it.id} className={`nav-item ${route === it.id ? 'active' : ''}`} onClick={() => go(it.id)}>
                     <Icon n={it.icon} />{it.label}
                     {it.id === 'dashboard' && (twin?.findings || []).length > 0 && <span className="nav-badge badge-red">{twin.findings.length}</span>}
+                    {it.id === 'assigned' && frontline.status === 'pending' && <span className="nav-badge badge-blue">1</span>}
                   </a>
                 ))}
               </div>
@@ -161,7 +235,7 @@ function Shell() {
               <div className="sidebar-help" style={{ background: 'linear-gradient(135deg,#7A5CF0,#5b21b6)' }} onClick={() => setAiDrawer(true)}>
                 <Icon n="ti-robot" /> AI layer active</div>
             )}
-            <div className="sidebar-ver">Goalcert · Integration Hub · composes {ent.enabled.length || 0} module(s)</div>
+            <div className="sidebar-ver">Goalcert · {persona.short} view · {ent.enabled.length || 0} module(s)</div>
           </div>
         </div>
 
@@ -184,6 +258,10 @@ function Shell() {
           {route === 'supervisor' && <SupervisorDashboard />}
           {route === 'compliance' && <ComplianceAudit />}
           {route === 'casestudy' && <CaseStudy />}
+          {route === 'studio' && <ContentStudio />}
+          {route === 'ops' && <OpsReadiness onNav={go} />}
+          {route === 'admin' && <AdminConsole />}
+          {route === 'loop' && <LoopBoard />}
           {route === 'audit' && <Audit />}
           {route === 'hivemind' && (
             <div className="panel">

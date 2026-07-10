@@ -5,6 +5,7 @@
 import React, { useState, useMemo } from 'react'
 import { Icon } from '../../lib.jsx'
 import { useAudit } from '../../hub/audit.jsx'
+import { useLoop } from '../../hub/loopState.jsx'
 
 // -- mocked compliance records (in production: query from all 4 services) --
 const MOCK_RECORDS = [
@@ -53,6 +54,7 @@ export default function ComplianceAudit() {
   const [statusFilter, setStatusFilter] = useState('')
   const [expanded, setExpanded] = useState(null)
   const audit = useAudit()
+  const loop = useLoop()
 
   const filtered = useMemo(() => {
     return MOCK_RECORDS.filter(r => {
@@ -76,6 +78,11 @@ export default function ComplianceAudit() {
     const a = document.createElement('a'); a.href = url; a.download = 'compliance_audit.csv'; a.click()
     URL.revokeObjectURL(url)
     audit.log('core', 'export', `Compliance audit exported: ${filtered.length} records`)
+    loop.emit('deploy', {
+      summary: `Evidence chain exported — ${filtered.length} records`,
+      detail: `${certified} certified${procedureFilter ? ` · ${procedureFilter}` : ''}. Signed, timestamped, regulator-format.`,
+      module: 'core', persona: 'compliance',
+    })
   }
 
   return (

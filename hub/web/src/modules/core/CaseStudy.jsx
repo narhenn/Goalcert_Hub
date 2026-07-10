@@ -8,10 +8,12 @@
 import React, { useState } from 'react'
 import { Icon } from '../../lib.jsx'
 import { useKpi } from '../../hub/kpiState.jsx'
+import { useLoop } from '../../hub/loopState.jsx'
 import MiniChart from '../../hub/MiniChart.jsx'
 
 export default function CaseStudy() {
   const { kpi, captureBaseline, generateNarrative, seedDemo, reset } = useKpi()
+  const loop = useLoop()
   const [narrative, setNarrative] = useState(kpi.narrative || '')
   const hasBaseline = !!kpi.baseline
   const hasData = kpi.weeklyRolls.length > 0
@@ -19,6 +21,11 @@ export default function CaseStudy() {
   const doGenerate = () => {
     const n = generateNarrative()
     setNarrative(n)
+    loop.emit('improve', {
+      summary: 'Case-study narrative drafted from platform data',
+      detail: 'Quarterly draft ready for human editing — the loop’s outcome, sold back to the market.',
+      module: 'core', persona: 'coo',
+    })
   }
 
   const doCopy = () => {

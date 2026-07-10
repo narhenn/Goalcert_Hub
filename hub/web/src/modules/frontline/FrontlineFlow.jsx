@@ -9,6 +9,7 @@ import { useTwin } from '../../hub/twinState.jsx'
 import { useFrontline } from '../../hub/frontlineState.jsx'
 import { useReadiness } from '../../hub/readinessState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
+import { useLoop } from '../../hub/loopState.jsx'
 import ReadinessGauge from './ReadinessGauge.jsx'
 
 const STEPS = [
@@ -29,10 +30,32 @@ export default function FrontlineFlow({ onComplete }) {
   const { assignment, completeFlow } = useFrontline()
   const { score, onFlowComplete } = useReadiness()
   const audit = useAudit()
+  const loop = useLoop()
   const meta = domainMeta(active?.domain || 'edm-machine')
+
+  // each completed step feeds the loop bus — this is the data trail the
+  // supervisor, compliance, COO and L&D views read back out
+  const emitStep = useCallback((stepId, stepResults) => {
+    const proc = assignment?.procedureName || 'procedure'
+    const emits = {
+      1: ['assess', `Shift login — assigned ${proc}`, 'Roster, asset state and readiness score matched by the agentic engine.', 'agentic'],
+      2: ['train', `Micro-lesson completed — ${proc}`, 'Smallest content unit, tied to the fault modes the twin sees today.', 'scenario'],
+      3: ['simulate', `XR practice scored ${stepResults.score ?? '—'}% — ${proc}`, 'Scenario mirrored the live twin snapshot. Performance captured continuously.', 'scenario'],
+      4: ['simulate', `Competency check passed — ${proc}`, `One fault-injected scenario, scored ${stepResults.score ?? '—'}% against SOP steps and timing.`, 'scenario'],
+      5: ['deploy', `Clearance signed — ${proc}`, 'Signed, timestamped record exposed to compliance and the supervisor dashboard.', 'frontline'],
+      6: ['assist', `AR overlay walked on ${assignment?.assetName || 'asset'}`, 'Twin fingerprinted the asset; overlay versioned per asset revision.', 'twin'],
+      7: stepResults.expertUsed
+        ? ['assist', 'One-tap expert session completed', 'Call routed by asset and procedure. Recorded, tagged, transcribed → candidate training content.', 'agentic']
+        : null,
+      8: ['observe', `Job closed — ${proc}`, 'Session logged; readiness score updated from today’s evidence.', 'twin'],
+    }
+    const e = emits[stepId]
+    if (e) loop.emit(e[0], { summary: e[1], detail: e[2], module: e[3], persona: 'frontline' })
+  }, [assignment, loop])
 
   const advance = useCallback((stepResults = {}) => {
     setResults(prev => ({ ...prev, [`step${step}`]: { ...stepResults, completedAt: new Date().toISOString() } }))
+    emitStep(step, stepResults)
     if (step < 8) {
       setStep(s => s + 1)
     } else {
@@ -41,9 +64,14 @@ export default function FrontlineFlow({ onComplete }) {
       onFlowComplete(xrScore)
       completeFlow(results)
       audit.log('frontline', 'flow_complete', `Frontline flow completed for ${assignment?.procedureName}`)
+      loop.emit('improve', {
+        summary: `Loop closed — ${assignment?.procedureName}`,
+        detail: 'Readiness updated; micro-refresh queued for tomorrow if a gap was observed.',
+        module: 'agentic', persona: 'frontline',
+      })
       if (onComplete) onComplete()
     }
-  }, [step, results, assignment, onFlowComplete, completeFlow, audit, onComplete])
+  }, [step, results, assignment, onFlowComplete, completeFlow, audit, loop, emitStep, onComplete])
 
   const currentStep = STEPS[step - 1]
 
