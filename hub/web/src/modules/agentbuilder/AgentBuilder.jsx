@@ -3,7 +3,7 @@
 // Follows HiveMind.jsx patterns for state, API, and rendering.
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib.jsx'
-import API from '../../api.js'
+import API, { authHeaders } from '../../api.js'
 
 // ── Constants ────────────────────────────────────────────────────────
 const ACCENT = '#7C3AED'
@@ -72,13 +72,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadAgents = useCallback(async () => {
     try {
-      const res = await fetch('/api/agentbuilder/agents', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setAgents(data.agents || data || [])
-      }
+      const data = await API.agentbuilder.agents()
+      setAgents(data.agents || data || [])
     } catch {
       // API may not exist yet, use empty list
     }
@@ -114,13 +109,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadTemplates = async () => {
     try {
-      const res = await fetch('/api/agentbuilder/templates', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setTemplates(data.templates || data || [])
-      }
+      const data = await API.agentbuilder.templates()
+      setTemplates(data.templates || data || [])
     } catch {
       // fallback templates
       setTemplates([
@@ -135,13 +125,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadTools = async () => {
     try {
-      const res = await fetch('/api/agentbuilder/tools', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setTools(data.tools || data || {})
-      }
+      const data = await API.agentbuilder.tools()
+      setTools(data.tools || data || {})
     } catch {
       // fallback tool clusters
       setTools({
@@ -185,7 +170,7 @@ export default function AgentBuilder({ onNav }) {
     try {
       await fetch(`/api/agentbuilder/agents/${agentId}/stage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           stage,
           agent,
@@ -204,15 +189,8 @@ export default function AgentBuilder({ onNav }) {
     // On stage 0, create the agent if not yet created
     if (stage === 0 && !agentId) {
       try {
-        const res = await fetch('/api/agentbuilder/agents', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ method, ...agent }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setAgentId(data.id || data.agent_id || null)
-        }
+        const data = await API.agentbuilder.create({ method, ...agent })
+        setAgentId(data.id || data.agent_id || null)
       } catch {
         // proceed with null id, local state is fine
       }
@@ -235,7 +213,7 @@ export default function AgentBuilder({ onNav }) {
     try {
       await fetch(`/api/agentbuilder/agents/${agentId || 'new'}/deploy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           agent,
           tools: [...selectedTools],
@@ -722,7 +700,7 @@ function StageDefine({ agent, setAgent, setLoading }) {
     try {
       const res = await fetch('/api/agentbuilder/generate-prompt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           name: agent.name,
           purpose: agent.purpose,
@@ -846,6 +824,7 @@ function StageKnowledge({ files, setFiles, agentId }) {
 
         await fetch('/api/agentbuilder/knowledge/upload', {
           method: 'POST',
+          headers: { ...authHeaders() },
           body: formData,
         })
       } catch {
@@ -1078,7 +1057,7 @@ function StageGuardrails({ guardrails, setGuardrails, testMessages, setTestMessa
     try {
       const res = await fetch('/api/agentbuilder/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           agent_id: agentId,
           message: msg,
@@ -1343,7 +1322,7 @@ function StageDeploy({ channels, setChannels, deploying, deployed, agent, onDepl
         <div style={{
           width: 64, height: 64, borderRadius: '50%', margin: '0 auto 16px',
           background: 'rgba(22,163,74,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, color: '#16A34A',
+          fontSize: 28, color: 'var(--accent-green)',
         }}>
           <Icon n="ti-check" />
         </div>

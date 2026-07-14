@@ -2,10 +2,11 @@
 //
 // One-click defensible evidence. Evidence chain: LMS completion + XR score +
 // simulation result + AR interaction + digital twin logs. Export to CSV/PDF.
-import React, { useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { Icon } from '../../lib.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import { useLoop } from '../../hub/loopState.jsx'
+import API from '../../api.js'
 
 // -- mocked compliance records (in production: query from all 4 services) --
 const MOCK_RECORDS = [
@@ -41,7 +42,6 @@ const MOCK_RECORDS = [
     clearanceTs: '2026-07-08T13:00:00Z', signedBy: 'Jack Sim', certExpiry: '2027-01-08', status: 'valid' },
 ]
 
-const PROCEDURES = [...new Set(MOCK_RECORDS.map(r => r.procedure))].sort()
 const STATUS_STYLE = {
   valid: { bg: '#dcfce7', color: '#065f46', label: 'Certified' },
   failed: { bg: '#fee2e2', color: '#991b1b', label: 'Failed' },
@@ -50,14 +50,34 @@ const STATUS_STYLE = {
 }
 
 export default function ComplianceAudit() {
+  const [records, setRecords] = useState(MOCK_RECORDS)
+  const [loadingRecords, setLoadingRecords] = useState(true)
   const [procedureFilter, setProcedureFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [expanded, setExpanded] = useState(null)
   const audit = useAudit()
   const loop = useLoop()
 
+  // Fetch real audit records on mount; fall back to MOCK_RECORDS on failure
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await API.admin.audit(100)
+        if (!cancelled && Array.isArray(data) && data.length > 0) setRecords(data)
+      } catch {
+        // API unavailable — keep MOCK_RECORDS as fallback
+      } finally {
+        if (!cancelled) setLoadingRecords(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const procedures = useMemo(() => [...new Set(records.map(r => r.procedure))].sort(), [records])
+
   const filtered = useMemo(() => {
-    return MOCK_RECORDS.filter(r => {
+    return records.filter(r => {
       if (procedureFilter && r.procedure !== procedureFilter) return false
       if (statusFilter && r.status !== statusFilter) return false
       return true
@@ -99,13 +119,19 @@ export default function ComplianceAudit() {
         </button>
       </div>
 
+      {loadingRecords && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', fontSize: 12, color: 'var(--hint)' }}>
+          <span className="spinner" style={{ width: 14, height: 14 }} /> Loading audit records...
+        </div>
+      )}
+
       {/* Query bar */}
       <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <select style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)',
           fontSize: 12, background: 'var(--surface)' }}
           value={procedureFilter} onChange={e => setProcedureFilter(e.target.value)}>
           <option value="">All procedures</option>
-          {PROCEDURES.map(p => <option key={p} value={p}>{p}</option>)}
+          {procedures.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         <select style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)',
           fontSize: 12, background: 'var(--surface)' }}
@@ -149,17 +175,17 @@ export default function ComplianceAudit() {
                       <div style={{ fontSize: 10, color: 'var(--hint)', fontFamily: 'var(--mono)' }}>{r.procedureId}</div>
                     </td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 600,
-                      color: r.lms >= 80 ? '#16a34a' : r.lms >= 60 ? '#d97706' : '#e11d48' }}>{r.lms}%</td>
+                      color: r.lms >= 80 ? 'var(--accent-green)' : r.lms >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)' }}>{r.lms}%</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 600,
-                      color: r.xrScore >= 80 ? '#16a34a' : r.xrScore >= 60 ? '#d97706' : '#e11d48' }}>{r.xrScore}</td>
+                      color: r.xrScore >= 80 ? 'var(--accent-green)' : r.xrScore >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)' }}>{r.xrScore}</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                      <span style={{ color: r.simPassed ? '#16a34a' : '#e11d48', fontWeight: 600 }}>
+                      <span style={{ color: r.simPassed ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 600 }}>
                         {r.simPassed ? 'Pass' : 'Fail'} ({r.simAttempts})
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{r.arSteps}/5</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 600,
-                      color: r.twinHealth >= 0.8 ? '#16a34a' : '#d97706' }}>{Math.round(r.twinHealth * 100)}%</td>
+                      color: r.twinHealth >= 0.8 ? 'var(--accent-green)' : 'var(--accent-amber)' }}>{Math.round(r.twinHealth * 100)}%</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11,
                       fontFamily: 'var(--mono)' }}>
                       {r.clearanceTs ? new Date(r.clearanceTs).toLocaleDateString('en-SG', { day: '2-digit', month: 'short' }) : '—'}
@@ -206,13 +232,13 @@ function EvidenceChain({ record }) {
         {chain.map((step, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px',
             background: step.ok ? '#dcfce710' : '#fee2e210', borderRadius: 6,
-            borderLeft: `3px solid ${step.ok ? '#16a34a' : '#e11d48'}` }}>
+            borderLeft: `3px solid ${step.ok ? 'var(--accent-green)' : 'var(--accent-red)'}` }}>
             <Icon n={step.icon} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600 }}>{step.label}</div>
               <div style={{ fontSize: 11, color: 'var(--muted)' }}>{step.ts}</div>
             </div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: step.ok ? '#16a34a' : '#e11d48' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: step.ok ? 'var(--accent-green)' : 'var(--accent-red)' }}>
               {step.value}
             </div>
           </div>
