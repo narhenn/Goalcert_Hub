@@ -27,3 +27,6 @@ dist/
 
 # Node
 node_modules/
+# Simulation engine runtime artifacts
+*.db
+services/simulation-engine/backend/.env
