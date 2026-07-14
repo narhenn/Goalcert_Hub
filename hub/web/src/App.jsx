@@ -24,7 +24,9 @@ import TwinsLibrary from './modules/twin/TwinsLibrary.jsx'
 import LiveDashboard from './modules/twin/LiveDashboard.jsx'
 import BuildTwin from './modules/twin/BuildTwin.jsx'
 import Prediction from './modules/twin/Prediction.jsx'
-import Scenario from './modules/scenario/Scenario.jsx'
+// Scenario.jsx (twin fault injection) is no longer routed directly — it is now the
+// "Twin Faults" tab inside SimulationWorkspace, which owns the Scenario & Faults page.
+import Trainer from './modules/scenario/Trainer.jsx'
 import SimulationWorkspace from './modules/simulation/SimulationWorkspace.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
@@ -282,12 +284,31 @@ function Shell() {
           {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} /> : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
-          {route === 'scenario' && (active ? <Scenario /> : <NeedAsset onNav={go} />)}
-          {/* Train with AI — the Simulation module. Renders its own panel + tab bar.
-              Deliberately NOT gated on an active twin: the cascade engine simulates a
-              railway scenario, which has no twin dependency. The one tab that DOES need a
-              twin (the guided drill) asks for one itself. */}
-          {route === 'train' && <SimulationWorkspace />}
+          {/* Scenario & Faults — the Simulation module. Renders its own panel + tab bar:
+              Twin Faults (the old Scenario.jsx, unchanged) plus the cascade engine's
+              Builder / Simulation / Reports / History.
+
+              Deliberately NOT gated on an active twin any more. The cascade engine models a
+              railway failure and has no twin dependency; only the Twin Faults tab does, and
+              it asks for one itself. Gating the whole page would have hidden a working
+              simulator behind an unrelated prerequisite. */}
+          {route === 'scenario' && <SimulationWorkspace />}
+
+          {/* Train with AI — the guided repair drill, and only that. Modelling a failure
+              (Scenario & Faults) and drilling a human through a procedure are different
+              activities; keeping them on one page conflated them. */}
+          {route === 'train' && (active
+            ? <div className="panel">
+                <div className="panel-header"><div>
+                  <div className="panel-title">Train with AI</div>
+                  <div className="panel-subtitle">
+                    {active.name} · interactive guided-repair drill, scored on the order you
+                    work in — isolate before you touch anything.
+                  </div>
+                </div></div>
+                <Trainer />
+              </div>
+            : <NeedAsset onNav={go} />)}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
           {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
           {route === 'supervisor' && <SupervisorDashboard />}

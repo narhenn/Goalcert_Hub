@@ -11,6 +11,7 @@ import { Icon } from '../../../lib.jsx'
 import { useSim } from '../simState.jsx'
 import AuthorScenario from '../components/AuthorScenario.jsx'
 import ReadinessCurve from '../components/ReadinessCurve.jsx'
+import Safeguards from '../components/Safeguards.jsx'
 
 export default function BuilderPane({ onRan }) {
   const {
@@ -18,6 +19,7 @@ export default function BuilderPane({ onRan }) {
     scenarioId, setScenarioId,
     readiness, setReadiness, effReadiness,
     conditions, toggleCondition,
+    difficulty, safeguards, removedSafeguards,
     running, error, run,
   } = useSim()
 
@@ -92,6 +94,7 @@ export default function BuilderPane({ onRan }) {
 
       <div>
         <div className="section-gap"><ReadinessCurve /></div>
+        <div className="section-gap"><Safeguards /></div>
 
         <div className="card section-gap">
           <div className="card-title"><Icon n="ti-cloud-storm" /> Operating conditions</div>
@@ -116,9 +119,17 @@ export default function BuilderPane({ onRan }) {
           <div className="card-title"><Icon n="ti-player-play" /> Run</div>
           <div className="sim-launch-summary">
             <div><span>Scenario</span><b>{selected?.name || '—'}</b></div>
-            <div><span>Domain</span><b>{meta.label}</b></div>
             <div><span>Readiness sent</span><b className="mono">{effReadiness}</b></div>
+            <div><span>Difficulty</span><b>{difficulty}</b></div>
             <div><span>Conditions</span><b>{conditions.length || 'none'}</b></div>
+            <div>
+              <span>Safeguards</span>
+              <b className={removedSafeguards.length ? 'sim-warn' : undefined}>
+                {safeguards.length
+                  ? `${safeguards.length - removedSafeguards.length}/${safeguards.length} in place`
+                  : 'none'}
+              </b>
+            </div>
           </div>
 
           {error && <div className="empty" style={{ color: 'var(--accent-red)', marginBottom: 10 }}>{error}</div>}

@@ -31,6 +31,42 @@ export default function CascadePane({ onGoBuild }) {
   const T = graph.totals
   const contained = !!graph.root?.certified
 
+  // A safeguard blocked the fault outright: it never happened, so nothing cascaded. This
+  // is a categorically different outcome from "the operator contained it" and deserves to
+  // be said plainly rather than shown as a suspiciously empty graph.
+  const prevented = (graph.root?.raw?.result?.summary?.prevented || 0) > 0
+    && (graph.root?.raw?.result?.summary?.attempts || 0) === 0
+
+  if (prevented) {
+    const blockEvent = graph.events.find(e => e.type === 'block')
+    return (
+      <div>
+        <div className="card sim-prevented">
+          <div className="card-title">
+            <Icon n="ti-shield-check" /> Fault prevented — no cascade
+            <span className="pill pill-green">0 consequences</span>
+          </div>
+          <div className="sim-prevented-body">
+            <b>{graph.scenarioName}</b> never happened. A safeguard blocked it at injection:
+            {' '}<span className="mono">{blockEvent?.message || 'blocked by an active resource'}</span>
+            <div style={{ marginTop: 10 }}>
+              Because the cause never occurred, nothing downstream of it occurred either — no
+              overcrowding, no service suspension, no line-wide delay. This is the strongest
+              possible outcome, and it was bought with equipment rather than training.
+            </div>
+            <div style={{ marginTop: 10 }}>
+              Remove the safeguard in the Builder, or raise the difficulty past what it can
+              absorb, and the fault fires — that is the cost of not having it.
+            </div>
+          </div>
+          <button className="btn" style={{ marginTop: 12 }} onClick={onGoBuild}>
+            <Icon n="ti-adjustments" /> Change safeguards
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="grid-4 section-gap">
