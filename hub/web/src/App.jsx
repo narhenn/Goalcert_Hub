@@ -6,6 +6,7 @@
 // super_admin/admin may "preview as" another persona to see its dashboard.
 import React, { useEffect, useState } from 'react'
 import { Logo, Icon, pct } from './lib.jsx'
+import { VerticalProvider, useVertical, VERTICALS } from './hub/verticalState.jsx'
 import { AuthProvider, useAuth } from './hub/auth.jsx'
 import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
 import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
@@ -24,6 +25,12 @@ import TwinsLibrary from './modules/twin/TwinsLibrary.jsx'
 import LiveDashboard from './modules/twin/LiveDashboard.jsx'
 import BuildTwin from './modules/twin/BuildTwin.jsx'
 import Prediction from './modules/twin/Prediction.jsx'
+import NetworkMap from './modules/twin/NetworkMap.jsx'
+import ChargingMap from './modules/twin/ChargingMap.jsx'
+import BatteryHeatmap from './modules/twin/BatteryHeatmap.jsx'
+import BedBoard from './modules/twin/BedBoard.jsx'
+import MedGasSchematic from './modules/twin/MedGasSchematic.jsx'
+import TacticalMap from './modules/twin/TacticalMap.jsx'
 import Scenario from './modules/scenario/Scenario.jsx'
 import SimulationWorkspace from './modules/simulation/SimulationWorkspace.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
@@ -67,21 +74,23 @@ function Gate() {
   if (user.mustChangePassword) return <ChangePassword />
 
   return (
-    <EntitlementProvider>
-      <PersonaProvider>
-        <AuditProvider>
-          <LoopProvider>
-            <KpiProvider>
-              <TwinProvider>
-                <FrontlineWrapper>
-                  <Shell />
-                </FrontlineWrapper>
-              </TwinProvider>
-            </KpiProvider>
-          </LoopProvider>
-        </AuditProvider>
-      </PersonaProvider>
-    </EntitlementProvider>
+    <VerticalProvider>
+      <EntitlementProvider>
+        <PersonaProvider>
+          <AuditProvider>
+            <LoopProvider>
+              <KpiProvider>
+                <TwinProvider>
+                  <FrontlineWrapper>
+                    <Shell />
+                  </FrontlineWrapper>
+                </TwinProvider>
+              </KpiProvider>
+            </LoopProvider>
+          </AuditProvider>
+        </PersonaProvider>
+      </EntitlementProvider>
+    </VerticalProvider>
   )
 }
 
@@ -121,6 +130,24 @@ function visibleNavFor(persona, ent, allows) {
       }
       return true // persona workspace surfaces
     })
+}
+
+function VerticalSwitcher() {
+  const { vertical, setVertical } = useVertical()
+  return (
+    <div className="vertical-switcher">
+      {VERTICALS.map(v => (
+        <button key={v.id}
+          className={`v-pill ${vertical === v.id ? 'active' : ''}`}
+          style={vertical === v.id ? { background: v.color } : undefined}
+          onClick={() => setVertical(v.id)}
+          title={v.label}>
+          <span className="status-dot" style={{ width: 7, height: 7, background: v.color, boxShadow: 'none', flexShrink: 0 }} />
+          <span className="v-pill-label">{v.label}</span>
+        </button>
+      ))}
+    </div>
+  )
 }
 
 function Shell() {
@@ -173,8 +200,13 @@ function Shell() {
     { label: 'Hub', items: nav.filter(it => HUB_IDS.includes(it.id)) },
   ].filter(s => s.items.length)
 
+  const { vertical } = useVertical()
+
+  // sync data-vertical on the root for CSS hooks
+  useEffect(() => { document.documentElement.setAttribute('data-vertical', vertical) }, [vertical])
+
   return (
-    <div className="app-root" style={{ '--pa': persona.accent, '--pa-soft': persona.accentSoft }}>
+    <div className="app-root" data-vertical={vertical} style={{ '--pa': persona.accent, '--pa-soft': persona.accentSoft }}>
       <div className="topbar">
         <button className="btn btn-ghost mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Icon n="ti-menu-2" /></button>
         <span className="brand"><Logo size={32} />
@@ -183,6 +215,7 @@ function Shell() {
             <span className="brand-tag">Integration Hub</span>
           </span>
         </span>
+        <VerticalSwitcher />
         <PersonaSwitcher />
         <div className="crumb">{active
           ? <><b>{active.name}</b> · live twin</>
@@ -282,6 +315,12 @@ function Shell() {
           {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} /> : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
+          {route === 'networkmap' && (active ? <NetworkMap /> : <NeedAsset onNav={go} />)}
+          {route === 'chargingmap' && (active ? <ChargingMap /> : <NeedAsset onNav={go} />)}
+          {route === 'batteryheatmap' && (active ? <BatteryHeatmap /> : <NeedAsset onNav={go} />)}
+          {route === 'bedboard' && (active ? <BedBoard /> : <NeedAsset onNav={go} />)}
+          {route === 'medgas' && (active ? <MedGasSchematic /> : <NeedAsset onNav={go} />)}
+          {route === 'tacticalmap' && (active ? <TacticalMap /> : <NeedAsset onNav={go} />)}
           {route === 'scenario' && (active ? <Scenario /> : <NeedAsset onNav={go} />)}
           {/* Train with AI — the Simulation module. Renders its own panel + tab bar.
               Deliberately NOT gated on an active twin: the cascade engine simulates a
@@ -305,7 +344,7 @@ function Shell() {
               <HiveMind />
             </div>
           )}
-          {route === 'builder' && <AgentBuilder onNav={go} />}
+          {route === 'builder' && <AgentBuilder onNav={go} vertical={vertical} />}
           {route === 'teamchat' && <TeamChat onNav={go} />}
         </div>
       </div>

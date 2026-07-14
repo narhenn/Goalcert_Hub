@@ -18,13 +18,28 @@ const STAGE_META = [
 ]
 
 const BUILTIN_AGENTS = [
-  { id: 'finance',            name: 'Finance Manager',        initials: 'FM', color: '#16A34A', tagline: 'Financial planning & analysis',    tools: 5, builtin: true },
-  { id: 'content',            name: 'Marketing Content',      initials: 'MC', color: '#D97706', tagline: 'Content strategy & creation',      tools: 4, builtin: true },
-  { id: 'demandgen',          name: 'Marketing Demand Gen',   initials: 'DG', color: '#7C3AED', tagline: 'Pipeline & lead generation',       tools: 6, builtin: true },
-  { id: 'ceo_assistant',      name: 'CEO Assistant',          initials: 'CA', color: '#6D28D9', tagline: 'Executive briefings & synthesis',   tools: 4, builtin: true },
-  { id: 'sales_outbound',     name: 'Sales Outbound',         initials: 'SO', color: '#2563EB', tagline: 'Outbound prospecting & outreach',   tools: 5, builtin: true },
-  { id: 'sales_qual',         name: 'Sales Qualification',    initials: 'SQ', color: '#E11D48', tagline: 'Lead scoring & qualification',      tools: 5, builtin: true },
-  { id: 'personal_assistant', name: 'Personal Assistant',     initials: 'PA', color: '#0D9488', tagline: 'Scheduling & task management',      tools: 3, builtin: true },
+  { id: 'finance',            name: 'Finance Manager',        initials: 'FM', color: '#16A34A', tagline: 'Financial planning & analysis',    tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'content',            name: 'Marketing Content',      initials: 'MC', color: '#D97706', tagline: 'Content strategy & creation',      tools: 4, builtin: true, vertical: 'platform' },
+  { id: 'demandgen',          name: 'Marketing Demand Gen',   initials: 'DG', color: '#7C3AED', tagline: 'Pipeline & lead generation',       tools: 6, builtin: true, vertical: 'platform' },
+  { id: 'ceo_assistant',      name: 'CEO Assistant',          initials: 'CA', color: '#6D28D9', tagline: 'Executive briefings & synthesis',   tools: 4, builtin: true, vertical: 'platform' },
+  { id: 'sales_outbound',     name: 'Sales Outbound',         initials: 'SO', color: '#2563EB', tagline: 'Outbound prospecting & outreach',   tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'sales_qual',         name: 'Sales Qualification',    initials: 'SQ', color: '#E11D48', tagline: 'Lead scoring & qualification',      tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'personal_assistant', name: 'Personal Assistant',     initials: 'PA', color: '#0D9488', tagline: 'Scheduling & task management',      tools: 3, builtin: true, vertical: 'platform' },
+  // ── Aerospace ──
+  { id: 'mro_planner',        name: 'MRO Planner',           initials: 'MP', color: '#0E9E97', tagline: 'Maintenance planning & scheduling', tools: 5, builtin: true, vertical: 'aerospace' },
+  { id: 'turbine_diag',       name: 'Turbine Diagnostics',   initials: 'TD', color: '#0E9E97', tagline: 'Engine health & fault diagnosis',   tools: 4, builtin: true, vertical: 'aerospace' },
+  // ── Railway ──
+  { id: 'fleet_ops',          name: 'Fleet Operations',      initials: 'FO', color: '#2563EB', tagline: 'Tram & train fleet management',     tools: 5, builtin: true, vertical: 'railway' },
+  { id: 'signal_monitor',     name: 'Signal Monitor',        initials: 'SM', color: '#2563EB', tagline: 'Signalling & track monitoring',     tools: 4, builtin: true, vertical: 'railway' },
+  // ── EV ──
+  { id: 'battery_health',     name: 'Battery Health',        initials: 'BH', color: '#16A34A', tagline: 'Cell-level SoH & thermal risk',     tools: 5, builtin: true, vertical: 'ev' },
+  { id: 'grid_balancer',      name: 'Grid Balancer',         initials: 'GB', color: '#16A34A', tagline: 'V2G scheduling & load balancing',   tools: 4, builtin: true, vertical: 'ev' },
+  // ── Hospital ──
+  { id: 'patient_flow',       name: 'Patient Flow',          initials: 'PF', color: '#E11D48', tagline: 'Bed management & ED wait times',    tools: 5, builtin: true, vertical: 'hospital' },
+  { id: 'facility_safety',    name: 'Facility Safety',       initials: 'FS', color: '#E11D48', tagline: 'OR pressure & cold chain compliance', tools: 4, builtin: true, vertical: 'hospital' },
+  // ── Defence ──
+  { id: 'force_readiness',    name: 'Force Readiness',       initials: 'FR', color: '#6D28D9', tagline: 'Readiness scoring & threat watch',  tools: 5, builtin: true, vertical: 'defence' },
+  { id: 'naval_monitor',      name: 'Naval Monitor',         initials: 'NM', color: '#6D28D9', tagline: 'Ship stability & propulsion health', tools: 4, builtin: true, vertical: 'defence' },
 ]
 
 const PERSONA_OPTIONS = ['Consultative', 'Formal', 'Friendly', 'Technical', 'Direct', 'Warm']
@@ -45,7 +60,7 @@ const CHANNEL_OPTIONS = [
 ]
 
 // ── Main component ───────────────────────────────────────────────────
-export default function AgentBuilder({ onNav }) {
+export default function AgentBuilder({ onNav, vertical }) {
   const [view, setView] = useState('dashboard')
   const [agents, setAgents] = useState([])
   const [stage, setStage] = useState(0)
@@ -82,10 +97,11 @@ export default function AgentBuilder({ onNav }) {
   // ── Stats ────────────────────────────────────────────────────────
   const customAgents = agents.filter(a => !a.builtin)
   const liveAgents = agents.filter(a => a.status === 'live')
-  const allAgents = [...BUILTIN_AGENTS, ...customAgents]
+  const filteredBuiltin = BUILTIN_AGENTS.filter(a => a.vertical === 'platform' || a.vertical === vertical)
+  const allAgents = [...filteredBuiltin, ...customAgents]
   const stats = {
     total: allAgents.length,
-    builtin: BUILTIN_AGENTS.length,
+    builtin: filteredBuiltin.length,
     custom: customAgents.length,
     live: liveAgents.length,
   }
@@ -248,9 +264,11 @@ export default function AgentBuilder({ onNav }) {
       {view === 'dashboard' ? (
         <Dashboard
           stats={stats}
+          builtinAgents={filteredBuiltin}
           customAgents={customAgents}
           onCreateAgent={startBuilder}
           onNav={onNav}
+          vertical={vertical}
         />
       ) : (
         <Builder
@@ -290,7 +308,11 @@ export default function AgentBuilder({ onNav }) {
 // ══════════════════════════════════════════════════════════════════════
 // VIEW 1: AGENT DASHBOARD
 // ══════════════════════════════════════════════════════════════════════
-function Dashboard({ stats, customAgents, onCreateAgent, onNav }) {
+function Dashboard({ stats, builtinAgents, customAgents, onCreateAgent, onNav, vertical }) {
+  const platformAgents = builtinAgents.filter(a => a.vertical === 'platform')
+  const verticalAgents = builtinAgents.filter(a => a.vertical !== 'platform')
+  const verticalLabel = { aerospace: 'Aerospace', railway: 'Railway', ev: 'EV', hospital: 'Hospital', defence: 'Defence' }[vertical] || 'Vertical'
+
   return (
     <>
       {/* Header */}
@@ -317,13 +339,25 @@ function Dashboard({ stats, customAgents, onCreateAgent, onNav }) {
         <StatCard label="Live" value={stats.live} icon="ti-broadcast" color="var(--accent-green)" live />
       </div>
 
-      {/* GoalCert Team */}
-      <SectionLabel label="GoalCert Team" count={BUILTIN_AGENTS.length} icon="ti-crown" />
+      {/* Platform agents (cross-vertical) */}
+      <SectionLabel label="Platform Agents" count={platformAgents.length} icon="ti-crown" />
       <div className="grid-3 section-gap">
-        {BUILTIN_AGENTS.map(a => (
+        {platformAgents.map(a => (
           <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
         ))}
       </div>
+
+      {/* Vertical-specific agents */}
+      {verticalAgents.length > 0 && (
+        <>
+          <SectionLabel label={`${verticalLabel} Agents`} count={verticalAgents.length} icon="ti-hexagon" />
+          <div className="grid-3 section-gap">
+            {verticalAgents.map(a => (
+              <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Your Agents */}
       <SectionLabel label="Your Agents" count={customAgents.length} icon="ti-user-plus" />
