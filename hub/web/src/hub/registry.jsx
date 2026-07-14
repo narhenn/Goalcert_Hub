@@ -42,6 +42,13 @@ export const MODULES = {
     blurb: 'Give the hive one brief and 8 specialist agents coordinate in real-time: CEO, Chief Strategy, 2 Finance, 2 Marketing, 2 Sales — producing executive briefs, strategy reports, financial analysis, campaign plans, pipeline reports and client proposals.',
     features: ['8 named agent personas', 'CEO synthesis from all outputs', 'Business strategy + finance + sales + marketing', 'Hex hive coordination view', 'One-click approve & export'],
   },
+  agentbuilder: {
+    id: 'agentbuilder', label: 'Agent Builder', short: 'Builder', icon: '⚙',
+    accent: '#00D4FF', accentSoft: 'rgba(0,212,255,.12)',
+    role: 'Create, configure, test and deploy custom AI agents',
+    blurb: 'Six-stage guided builder. From idea to deployed agent in under 30 minutes.',
+    features: ['Agent designer', 'Tool marketplace', 'Knowledge upload', 'Guardrails & eval', 'Multi-channel deploy'],
+  },
 }
 export const MODULES_EXT = {
   frontline: {
@@ -61,7 +68,7 @@ export const MODULES_EXT = {
 }
 // merge extended modules into main
 Object.assign(MODULES, MODULES_EXT)
-export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'hivemind', 'frontline', 'supervisor']
+export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'hivemind', 'agentbuilder', 'frontline', 'supervisor']
 
 // ── Sidebar navigation, tagged by the owning module ──────────────────
 // module: 'core'  → always present (the hub's own cross-cutting surface)
@@ -77,6 +84,8 @@ export const NAV = [
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
   { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },
   { id: 'hivemind', label: 'AUTOMIND Hive', icon: 'ti-hexagon', module: 'hivemind' },
+  { id: 'builder', label: 'Agent Builder', icon: '⚙', module: 'agentbuilder' },
+  { id: 'teamchat', label: 'Team Chat', icon: '💬', module: 'agentbuilder' },
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },

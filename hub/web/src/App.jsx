@@ -38,13 +38,15 @@ import UserManagement from './modules/admin/UserManagement.jsx'
 import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
 import HiveMind from './modules/hivemind/HiveMind.jsx'
 import './modules/hivemind/hivemind.css'
+import AgentBuilder from './modules/agentbuilder/AgentBuilder.jsx'
+import TeamChat from './modules/agentbuilder/TeamChat.jsx'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 
 // platform-owned nav modules (gated by entitlement + persona policy);
 // everything else is persona workspace or hub chrome.
-const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind']
+const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind', 'agentbuilder']
 const HUB_IDS = ['loop', 'audit']
 
 export default function App() {
@@ -167,6 +169,7 @@ function Shell() {
     { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin'), mc: MODULES.twin.accent },
     { label: MODULES.scenario.label, items: nav.filter(it => it.module === 'scenario'), mc: MODULES.scenario.accent },
     { label: MODULES.hivemind.label, items: nav.filter(it => it.module === 'hivemind'), mc: MODULES.hivemind.accent },
+    { label: 'Builder', items: nav.filter(it => it.module === 'agentbuilder'), mc: MODULES.agentbuilder.accent },
     { label: 'Hub', items: nav.filter(it => HUB_IDS.includes(it.id)) },
   ].filter(s => s.items.length)
 
@@ -303,6 +306,8 @@ function Shell() {
               <HiveMind />
             </div>
           )}
+          {route === 'builder' && <AgentBuilder onNav={go} />}
+          {route === 'teamchat' && <TeamChat onNav={go} />}
         </div>
       </div>
 

@@ -51,6 +51,13 @@ SERVICES = {
         "header": os.environ.get("AGENTS_KEY_HEADER", "X-API-Key"),
         "module": "agentic",
     },
+    "agentbuilder": {
+        "base": os.environ.get("AGENTBUILDER_BASE_URL", ""),
+        "key": os.environ.get("AGENTBUILDER_API_KEY", ""),
+        "prefix": os.environ.get("AGENTBUILDER_PATH_PREFIX", "/api"),
+        "header": os.environ.get("AGENTBUILDER_KEY_HEADER", "X-API-Key"),
+        "module": "agentbuilder",
+    },
 }
 
 # headers we never forward upstream

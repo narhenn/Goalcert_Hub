@@ -119,6 +119,27 @@ const API = {
     wsUrl: () => `ws://${location.host}/api/drone/ws`,
   },
 
+  // ── Agent Builder ──
+  agentbuilder: {
+    agents: () => get('/api/agentbuilder/agents'),
+    get: (id) => get(`/api/agentbuilder/agents/${id}`),
+    create: (body) => post('/api/agentbuilder/agents/create', body),
+    update: (id, body) => put(`/api/agentbuilder/agents/${id}`, body),
+    remove: (id) => del(`/api/agentbuilder/agents/${id}`),
+    generatePrompt: (id, body) => post(`/api/agentbuilder/agents/${id}/generate-prompt`, body),
+    uploadKnowledge: (id, formData) => postForm(`/api/agentbuilder/agents/${id}/knowledge`, formData),
+    removeKnowledge: (id, filename) => del(`/api/agentbuilder/agents/${id}/knowledge/${filename}`),
+    setTools: (id, tools) => put(`/api/agentbuilder/agents/${id}/tools`, { tools }),
+    setGuardrails: (id, guardrails) => put(`/api/agentbuilder/agents/${id}/guardrails`, { guardrails }),
+    test: (id, message) => post(`/api/agentbuilder/agents/${id}/test`, { message }),
+    eval: (id) => post(`/api/agentbuilder/agents/${id}/eval`, {}),
+    deploy: (id, channels) => put(`/api/agentbuilder/agents/${id}/deploy`, { channels }),
+    templates: () => get('/api/agentbuilder/templates'),
+    tools: () => get('/api/agentbuilder/tools'),
+    chat: (id, message, sessionId) => `/api/agentbuilder/agents/${id}/chat`,  // SSE endpoint, used directly
+    teamChat: (message, sessionId) => `/api/agentbuilder/team/chat`,  // SSE endpoint
+  },
+
   // ── Platform health (all services) ──
   healthCheck: async () => {
     const results = {}
@@ -127,6 +148,7 @@ const API = {
       ['agents', '/api/agents/health'],
       ['scenario', '/api/scenario/health'],
       ['drone', '/api/drone/health'],
+      ['agentbuilder', '/api/agentbuilder/health'],
     ]
     await Promise.allSettled(
       checks.map(async ([name, url]) => {
@@ -169,8 +191,22 @@ async function request(method, url, body) {
 
 const get = (url) => request('GET', url)
 const post = (url, body) => request('POST', url, body ?? {})
+const put = (url, body) => request('PUT', url, body ?? {})
 const patch = (url, body) => request('PATCH', url, body ?? {})
 const del = (url) => request('DELETE', url)
+
+async function postForm(url, formData) {
+  const opts = { method: 'POST', headers: { ...authHeaders() }, body: formData }
+  const r = await fetch(url, opts)
+  if (r.status === 401) onUnauthorized()
+  if (!r.ok) {
+    let detail = `POST ${url}: ${r.status}`
+    try { const j = await r.json(); if (j?.detail) detail = j.detail } catch {}
+    const err = new Error(detail); err.status = r.status; throw err
+  }
+  const ct = r.headers.get('content-type') || ''
+  return ct.includes('application/json') ? r.json() : r.text()
+}
 
 async function getAuth(url, token) {
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
