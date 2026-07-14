@@ -9,6 +9,8 @@
 import React from 'react'
 import { Icon } from '../../../lib.jsx'
 import { useSim } from '../simState.jsx'
+import AuthorScenario from '../components/AuthorScenario.jsx'
+import ReadinessCurve from '../components/ReadinessCurve.jsx'
 
 export default function BuilderPane({ onRan }) {
   const {
@@ -33,6 +35,8 @@ export default function BuilderPane({ onRan }) {
   return (
     <div className="grid-2 sim-builder">
       <div>
+        <AuthorScenario />
+
         <div className="card section-gap">
           <div className="card-title">
             <Icon n="ti-urgent" /> Fault scenario
@@ -87,6 +91,8 @@ export default function BuilderPane({ onRan }) {
       </div>
 
       <div>
+        <div className="section-gap"><ReadinessCurve /></div>
+
         <div className="card section-gap">
           <div className="card-title"><Icon n="ti-cloud-storm" /> Operating conditions</div>
           <div className="sim-conds">
