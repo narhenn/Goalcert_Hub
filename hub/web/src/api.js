@@ -1,6 +1,40 @@
-// api.js — Hub API client for all 4 backend services
+// api.js — Hub API client. Every call goes to the hub origin (/api/*); the hub
+// authenticates the JWT and reverse-proxies twin/scenario/agents to the real
+// services with server-side keys. The browser only ever holds the user's token.
+
+// ── Auth token store (set by AuthProvider) ──
+const TOKEN_KEY = 'gc_hub_token'
+let _token = (() => { try { return localStorage.getItem(TOKEN_KEY) || null } catch { return null } })()
+export function setAuthToken(t) {
+  _token = t || null
+  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY) } catch {}
+}
+export function getAuthToken() { return _token }
+export function authHeaders() { return _token ? { Authorization: `Bearer ${_token}` } : {} }
 
 const API = {
+  // ── Auth ──
+  auth: {
+    login: (email, password) => post('/api/auth/login', { email, password }),
+    me: () => get('/api/auth/me'),
+    changePassword: (current_password, new_password) =>
+      post('/api/auth/change-password', { current_password, new_password }),
+  },
+
+  // ── Admin (super_admin + org admin) ──
+  admin: {
+    orgs: () => get('/api/admin/orgs'),
+    createOrg: (body) => post('/api/admin/orgs', body),
+    updateOrg: (id, body) => patch(`/api/admin/orgs/${id}`, body),
+    users: () => get('/api/admin/users'),
+    createUser: (body) => post('/api/admin/users', body),
+    updateUser: (id, body) => patch(`/api/admin/users/${id}`, body),
+    resetPassword: (id, body) => post(`/api/admin/users/${id}/reset-password`, body),
+    deleteUser: (id) => del(`/api/admin/users/${id}`),
+    audit: (limit = 50) => get(`/api/admin/audit?limit=${limit}`),
+    platform: () => get('/api/admin/platform'),
+  },
+
   // ── NextXR Digital Twin ──
   twin: {
     health: () => get('/api/twin/health'),
@@ -97,7 +131,7 @@ const API = {
     await Promise.allSettled(
       checks.map(async ([name, url]) => {
         try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(3000) })
+          const r = await fetch(url, { headers: authHeaders(), signal: AbortSignal.timeout(3000) })
           results[name] = { ok: r.ok, status: r.status }
         } catch {
           results[name] = { ok: false, error: 'unreachable' }
@@ -109,21 +143,34 @@ const API = {
 }
 
 // ── HTTP helpers ──
-async function get(url) {
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(`GET ${url}: ${r.status}`)
-  return r.json()
+// On 401 the token is stale/invalid → clear it and signal the app to re-auth.
+function onUnauthorized() {
+  setAuthToken(null)
+  try { window.dispatchEvent(new CustomEvent('auth:expired')) } catch {}
 }
 
-async function post(url, body) {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!r.ok) throw new Error(`POST ${url}: ${r.status}`)
-  return r.json()
+// Throws an Error whose .status is the HTTP code and .detail is the API message.
+async function request(method, url, body) {
+  const opts = { method, headers: { ...authHeaders() } }
+  if (body !== undefined) {
+    opts.headers['Content-Type'] = 'application/json'
+    opts.body = JSON.stringify(body)
+  }
+  const r = await fetch(url, opts)
+  if (r.status === 401) onUnauthorized()
+  if (!r.ok) {
+    let detail = `${method} ${url}: ${r.status}`
+    try { const j = await r.json(); if (j?.detail) detail = j.detail } catch {}
+    const err = new Error(detail); err.status = r.status; throw err
+  }
+  const ct = r.headers.get('content-type') || ''
+  return ct.includes('application/json') ? r.json() : r.text()
 }
+
+const get = (url) => request('GET', url)
+const post = (url, body) => request('POST', url, body ?? {})
+const patch = (url, body) => request('PATCH', url, body ?? {})
+const del = (url) => request('DELETE', url)
 
 async function getAuth(url, token) {
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })

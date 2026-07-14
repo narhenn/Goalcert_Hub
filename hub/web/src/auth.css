@@ -1,0 +1,108 @@
+/* auth.css — login, account menu, preview banner, user management,
+   super-admin console, and shared modal. Uses the design-system tokens. */
+
+/* ── boot splash ─────────────────────────────────────────────────────── */
+.boot-splash{position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;
+  margin:auto;padding-top:22vh}
+.boot-splash .st-spin{border-top-color:var(--brand)}
+
+/* ── login / change-password ─────────────────────────────────────────── */
+.login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:auto;background:var(--bg);padding:24px}
+.login-card{position:relative;width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;box-shadow:var(--shadow-lg);padding:34px 32px 24px;animation:fadeIn .25s ease}
+.login-brand{display:flex;align-items:center;gap:11px;justify-content:center;margin-bottom:22px}
+.login-head{text-align:center;margin-bottom:22px}
+.login-title{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.02em}
+.login-sub{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.login-form{display:flex;flex-direction:column;gap:14px}
+.login-field{display:flex;flex-direction:column;gap:6px}
+.login-field>span{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.login-input-wrap{position:relative;display:flex;align-items:center}
+.login-input-wrap>i{position:absolute;left:12px;font-size:16px;color:var(--hint);pointer-events:none}
+.login-input-wrap input{width:100%;font-family:var(--font);font-size:13.5px;padding:11px 12px 11px 36px;border-radius:11px;
+  border:1px solid var(--border2);background:var(--surface);color:var(--text);outline:none;transition:border-color .12s,box-shadow .12s}
+.login-input-wrap input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+.login-eye{position:absolute;right:8px;width:28px;height:28px;border:0;background:transparent;color:var(--hint);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:7px}
+.login-eye:hover{background:var(--surface2);color:var(--text)}
+.login-error{display:flex;align-items:center;gap:8px;padding:10px 13px;border-radius:11px;font-size:12px;font-weight:500;
+  background:rgba(225,29,72,.09);border:1px solid rgba(225,29,72,.28);color:var(--accent-red)}
+.login-error i{font-size:15px;flex-shrink:0}
+.login-cta{width:100%;justify-content:center;padding:12px 0;font-size:14px;margin-top:2px}
+.login-foot{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;padding-top:16px;
+  border-top:1px solid var(--border);font-size:11px;color:var(--hint)}
+[data-theme="dark"] .login-card{background:#0f1325}
+[data-theme="dark"] .login-input-wrap input{background:#0b0f1e;border-color:rgba(124,150,255,.18);color:#e9edff}
+
+/* ── topbar account menu ─────────────────────────────────────────────── */
+.acct-wrap{position:relative}
+.acct{display:inline-flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;border-radius:999px;background:var(--surface2);
+  border:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text);cursor:pointer;transition:.14s}
+.acct:hover{border-color:var(--border2)}
+.acct .av{width:26px;height:26px;border-radius:50%;background:var(--gradient);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.acct-name{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct .ti-chevron-down{font-size:13px;color:var(--muted)}
+.acct-overlay{position:fixed;inset:0;z-index:59}
+.acct-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:60;width:240px;background:var(--surface);
+  border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;animation:fadeIn .14s ease}
+.acct-menu-head{padding:14px 15px;border-bottom:1px solid var(--border)}
+.acct-menu-name{font-weight:700;font-size:13.5px}
+.acct-menu-email{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.acct-menu-item{width:100%;display:flex;align-items:center;gap:9px;padding:11px 15px;border:0;background:transparent;
+  color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:600;cursor:pointer;text-align:left}
+.acct-menu-item:hover{background:var(--surface2)}
+.acct-menu-item i{font-size:16px;color:var(--muted)}
+[data-theme="dark"] .acct-menu{background:#0f1325}
+
+/* ── preview banner ──────────────────────────────────────────────────── */
+.preview-banner{display:inline-flex;align-items:center;gap:6px;font-family:var(--font);font-size:11.5px;font-weight:700;
+  color:#b45309;background:rgba(180,83,9,.12);border:1px solid rgba(180,83,9,.34);border-radius:999px;padding:5px 11px;cursor:pointer}
+.preview-banner:hover{background:rgba(180,83,9,.2)}
+.preview-banner i{font-size:13px}
+
+/* ── user management ─────────────────────────────────────────────────── */
+.um-roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.um-rolecard{display:flex;align-items:center;gap:10px;padding:12px 13px;border-radius:13px;background:var(--surface);
+  border:1px solid var(--border);border-left:3px solid var(--mc)}
+.um-rolecard-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;
+  background:color-mix(in srgb,var(--mc) 12%,transparent);color:var(--mc);flex-shrink:0}
+.um-rolecard-n{font-family:var(--display);font-size:20px;font-weight:700;line-height:1}
+.um-rolecard-l{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.25}
+.um-table td{vertical-align:middle}
+.um-av{width:30px;height:30px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0}
+.um-role-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font);font-size:11.5px;font-weight:600;
+  padding:5px 11px;border-radius:999px;color:var(--mc);background:color-mix(in srgb,var(--mc) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--mc) 26%,transparent);cursor:pointer}
+.um-role-pill:disabled{cursor:default;opacity:.85}
+.um-role-pill i{font-size:12px}
+.um-role-pill .ti-pencil{font-size:11px;opacity:.6}
+.um-act{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  cursor:pointer;font-size:14px;margin-left:5px;transition:.13s}
+.um-act:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.um-act.danger:hover{border-color:var(--accent-red);color:var(--accent-red);background:rgba(225,29,72,.08)}
+.um-creds{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:13px;
+  background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.3)}
+.um-creds>i{font-size:22px;color:var(--accent-green);flex-shrink:0}
+
+/* ── super-admin org list ────────────────────────────────────────────── */
+.sa-orglist{display:flex;flex-direction:column;gap:7px}
+.sa-org{display:flex;align-items:center;gap:10px;width:100%;padding:11px 13px;border-radius:12px;background:var(--surface2);
+  border:1px solid var(--border);cursor:pointer;text-align:left;transition:.14s;font-family:var(--font)}
+.sa-org:hover{border-color:var(--border2)}
+.sa-org.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-ring)}
+.sa-org>i{font-size:15px;color:var(--muted)}
+[data-theme="dark"] .sa-org{background:#0b0f1e}
+
+/* ── shared modal ────────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;z-index:80;background:rgba(16,13,26,.5);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .14s ease}
+.modal{width:100%;max-width:440px;max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;box-shadow:var(--shadow-lg);animation:fadeIn .18s ease}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)}
+.modal-title{display:flex;align-items:center;gap:9px;font-family:var(--display);font-size:16px;font-weight:700}
+.modal-title i{font-size:19px;color:var(--brand)}
+.modal-body{padding:18px;display:flex;flex-direction:column;gap:14px}
+.modal-divider{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--hint);font-weight:700;
+  padding-top:6px;border-top:1px dashed var(--border);margin-top:2px}
+[data-theme="dark"] .modal{background:#0f1325}

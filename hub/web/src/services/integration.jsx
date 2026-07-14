@@ -7,6 +7,7 @@
 // same probe state as its observability panel. Swapping SIM → LIVE later is a
 // backend deployment, not a frontend change.
 import React, { useEffect, useState } from 'react'
+import { authHeaders } from '../api.js'
 
 export const SERVICES = {
   twin:     { id: 'twin',     label: 'NextXR Digital Twin',    health: '/api/twin/health',     accent: '#0E9E97' },
@@ -28,7 +29,7 @@ export async function probeAll() {
   probing = Promise.allSettled(Object.values(SERVICES).map(async (svc) => {
     const t0 = performance.now()
     try {
-      const r = await fetch(svc.health, { signal: AbortSignal.timeout(3000) })
+      const r = await fetch(svc.health, { headers: authHeaders(), signal: AbortSignal.timeout(3000) })
       state[svc.id] = {
         status: r.ok ? 'live' : 'error',
         latency: Math.round(performance.now() - t0),

@@ -1,22 +1,20 @@
-// App.jsx — the Integration Hub shell, now persona-composed.
+// App.jsx — the Integration Hub shell, auth-gated and role-driven.
 //
-// Two axes compose the UI: entitlements (which platforms the tenant adopted)
-// × persona (which lens the user works through). Onboarding picks the modules,
-// the persona picker picks the lens, and the shell renders exactly that
-// intersection — nav grouped by platform, a persona-owned home view, and the
-// agentic layer only where the persona's policy allows it.
+// Flow: sign in → the role your admin assigned resolves to a persona → the shell
+// renders exactly that persona's platform view (nav grouped by Twin/Scenario/Hive,
+// gated by org entitlements + policy). No persona is chosen in the browser.
+// super_admin/admin may "preview as" another persona to see its dashboard.
 import React, { useEffect, useState } from 'react'
 import { Logo, Icon, pct } from './lib.jsx'
+import { AuthProvider, useAuth } from './hub/auth.jsx'
 import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
 import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
 import { LoopProvider } from './hub/loopState.jsx'
 import { TwinProvider, useTwin } from './hub/twinState.jsx'
 import { AuditProvider } from './hub/audit.jsx'
-import { nameFromEmail } from './hub/util.js'
-import Onboarding from './hub/Onboarding.jsx'
-import PersonaPicker from './hub/PersonaPicker.jsx'
+import Login from './hub/Login.jsx'
+import ChangePassword from './hub/ChangePassword.jsx'
 import PersonaSwitcher from './hub/PersonaSwitcher.jsx'
-import Switcher from './hub/Switcher.jsx'
 import LoopBoard from './hub/LoopBoard.jsx'
 import { CoPilotDock, AIDrawer, RepairTakeover } from './hub/AILayer.jsx'
 import Overview from './modules/core/Overview.jsx'
@@ -36,15 +34,13 @@ import CaseStudy from './modules/core/CaseStudy.jsx'
 import ContentStudio from './modules/lnd/ContentStudio.jsx'
 import OpsReadiness from './modules/coo/OpsReadiness.jsx'
 import AdminConsole from './modules/admin/AdminConsole.jsx'
+import UserManagement from './modules/admin/UserManagement.jsx'
+import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
 import HiveMind from './modules/hivemind/HiveMind.jsx'
 import './modules/hivemind/hivemind.css'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
-
-// Mocked authenticated tenant (a real hub resolves this from SSO at the edge).
-const USER = { email: 'tejeshachutaa19@gmail.com', tenant: 'Acme Industrial' }
-USER.name = nameFromEmail(USER.email)
 
 // platform-owned nav modules (gated by entitlement + persona policy);
 // everything else is persona workspace or hub chrome.
@@ -53,6 +49,22 @@ const HUB_IDS = ['loop', 'audit']
 
 export default function App() {
   return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
+  )
+}
+
+// Auth gate: decides login vs forced-password-change vs the running app.
+function Gate() {
+  const { loading, isAuthed, user } = useAuth()
+  useEffect(() => { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t) }, [])
+
+  if (loading) return <BootSplash />
+  if (!isAuthed) return <Login />
+  if (user.mustChangePassword) return <ChangePassword />
+
+  return (
     <EntitlementProvider>
       <PersonaProvider>
         <AuditProvider>
@@ -60,7 +72,7 @@ export default function App() {
             <KpiProvider>
               <TwinProvider>
                 <FrontlineWrapper>
-                  <Root />
+                  <Shell />
                 </FrontlineWrapper>
               </TwinProvider>
             </KpiProvider>
@@ -68,6 +80,14 @@ export default function App() {
         </AuditProvider>
       </PersonaProvider>
     </EntitlementProvider>
+  )
+}
+
+function BootSplash() {
+  return (
+    <div className="login"><div className="onb-bg" />
+      <div className="boot-splash"><Logo size={44} /><span className="st-spin" style={{ width: 20, height: 20 }} /></div>
+    </div>
   )
 }
 
@@ -83,15 +103,6 @@ function FrontlineWrapper({ children }) {
       </FrontlineProvider>
     </ReadinessProvider>
   )
-}
-
-function Root() {
-  const { onboarded } = useEntitlements()
-  const { persona } = usePersona()
-  useEffect(() => { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t) }, [])
-  if (!onboarded) return <Onboarding />
-  if (!persona) return <PersonaPicker />
-  return <Shell />
 }
 
 // resolve the persona's visible nav: persona.nav ∩ entitlements ∩ policy
@@ -112,33 +123,32 @@ function visibleNavFor(persona, ent, allows) {
 
 function Shell() {
   const ent = useEntitlements()
-  const { persona, allows, clearPersona } = usePersona()
+  const { user, logout } = useAuth()
+  const { persona, isPreview, exitPreview, allows } = usePersona()
   const { active, twin, openTwin } = useTwin()
   const frontline = useFrontline()
   const [route, setRoute] = useState(() => persona.defaultRoute)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiDrawer, setAiDrawer] = useState(false)
   const [takeover, setTakeover] = useState(false)
+  const [acctOpen, setAcctOpen] = useState(false)
   const [, force] = useState(0)
 
   const nav = visibleNavFor(persona, ent, allows)
   const navIds = nav.map(n => n.id)
   const hasAgentic = ent.has('agentic') && allows(persona.id, 'agentic')
 
-  // persona switched → land on its home surface
+  // persona (or preview) changed → land on its home surface
   useEffect(() => {
     setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
     setAiDrawer(false); setTakeover(false)
   }, [persona.id]) // eslint-disable-line
 
-  // if the current route's surface was just gated away, fall back home
-  // ('flow' and 'overview' are reachable without a nav entry)
   useEffect(() => {
     if (!navIds.includes(route) && route !== 'flow' && route !== 'overview')
       setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
   }, [ent.enabled, nav.length]) // eslint-disable-line
 
-  // listen for copilot slash-command navigation events
   useEffect(() => {
     const handler = (e) => { if (e.detail?.route) go(e.detail.route) }
     window.addEventListener('copilot:nav', handler)
@@ -152,7 +162,6 @@ function Shell() {
   const go = (r) => { setRoute(r); setSidebarOpen(false) }
   const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
 
-  // sidebar: persona workspace first, then the persona's platform surfaces, then hub
   const sections = [
     { label: `${persona.short} workspace`, items: nav.filter(it => !HUB_IDS.includes(it.id) && !PLATFORM_MODULES.includes(it.module)), mc: persona.accent },
     { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin'), mc: MODULES.twin.accent },
@@ -172,10 +181,15 @@ function Shell() {
           </span>
         </span>
         <PersonaSwitcher />
-        {persona.id === 'admin' && <Switcher />}
         <div className="crumb">{active
           ? <><b>{active.name}</b> · live twin</>
-          : <>{persona.done}</>}</div>
+          : <>{user.orgName || 'Platform'} · {persona.done}</>}</div>
+
+        {isPreview && (
+          <button className="preview-banner" onClick={exitPreview} title="Return to your own view">
+            <Icon n="ti-eye" /> Previewing as {persona.short} <Icon n="ti-x" />
+          </button>
+        )}
 
         {hasAgentic && (
           <button className="topbar-ai" onClick={() => setAiDrawer(true)} title="Agentic AI actions">
@@ -189,26 +203,45 @@ function Shell() {
         <button className="btn btn-ghost" style={{ padding: '5px 8px', fontSize: 14 }} title="Toggle theme" onClick={toggleTheme}>
           <Icon n={isDark ? 'ti-sun' : 'ti-moon'} />
         </button>
-        <div className="acct"><span className="av">{USER.name[0]}</span>{USER.name}</div>
+        <div className="acct-wrap">
+          <button className="acct" onClick={() => setAcctOpen(o => !o)}>
+            <span className="av">{(user.fullName || user.email)[0].toUpperCase()}</span>
+            <span className="acct-name">{user.fullName || user.email.split('@')[0]}</span>
+            <Icon n="ti-chevron-down" />
+          </button>
+          {acctOpen && (
+            <>
+              <div className="acct-overlay" onClick={() => setAcctOpen(false)} />
+              <div className="acct-menu">
+                <div className="acct-menu-head">
+                  <div className="acct-menu-name">{user.fullName || '—'}</div>
+                  <div className="acct-menu-email">{user.email}</div>
+                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span className="pill pill-purple" style={{ fontSize: 9 }}>{ROLE_LABEL[user.role] || user.role}</span>
+                    {user.orgName && <span className="pill pill-surface" style={{ fontSize: 9 }}>{user.orgName}</span>}
+                  </div>
+                </div>
+                <button className="acct-menu-item" onClick={() => { setAcctOpen(false); logout() }}>
+                  <Icon n="ti-logout" /> Sign out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="body">
         {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
         <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-          {/* persona identity — who this UI is composed for */}
           <div className="sb-persona" title={`${persona.label} — ${persona.entry}`}
             style={{ '--mc': persona.accent, '--mc-soft': persona.accentSoft }}>
             <span className="sb-persona-ic"><Icon n={persona.icon} /></span>
             <span className="sb-persona-body">
               <span className="sb-persona-label">{persona.label}</span>
-              <span className="sb-persona-entry">{persona.entry}</span>
+              <span className="sb-persona-entry">{isPreview ? 'preview' : persona.entry}</span>
             </span>
-            <button className="sb-persona-switch" onClick={clearPersona} title="Change persona">
-              <Icon n="ti-switch-horizontal" />
-            </button>
           </div>
-          {/* the persona's segment of the loop */}
-          <div className="sb-stages" title={`Loop stages this persona runs: ${persona.stages.join(' → ') || 'operates the rails'}`}>
+          <div className="sb-stages" title={`Loop stages this persona runs`}>
             {LOOP_STAGES.map(s => (
               <span key={s.id} className={`sb-stage ${persona.stages.includes(s.id) ? 'on' : ''}`}
                 style={{ '--mc': persona.accent }} />
@@ -240,7 +273,7 @@ function Shell() {
         </div>
 
         <div className="content">
-          {route === 'overview' && <Overview user={USER} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
+          {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
           {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
             onOpen={(d, n) => { openTwin(d, n); go('dashboard') }} onBuild={() => go('build')} />}
           {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} /> : <NeedAsset onNav={go} />)}
@@ -260,7 +293,9 @@ function Shell() {
           {route === 'casestudy' && <CaseStudy />}
           {route === 'studio' && <ContentStudio />}
           {route === 'ops' && <OpsReadiness onNav={go} />}
-          {route === 'admin' && <AdminConsole />}
+          {route === 'admin' && <AdminConsole onNav={go} />}
+          {route === 'users' && <UserManagement />}
+          {route === 'superadmin' && <SuperAdminConsole />}
           {route === 'loop' && <LoopBoard />}
           {route === 'audit' && <Audit />}
           {route === 'hivemind' && (
@@ -279,6 +314,11 @@ function Shell() {
       </>}
     </div>
   )
+}
+
+const ROLE_LABEL = {
+  super_admin: 'Platform Owner', admin: 'Admin / IT', coo: 'Plant Manager / COO',
+  compliance: 'Compliance Officer', lnd: 'L&D / Trainer', supervisor: 'Line Supervisor', frontline: 'Frontline Operator',
 }
 
 function NeedAsset({ onNav }) {

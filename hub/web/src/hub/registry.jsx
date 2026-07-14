@@ -4,7 +4,8 @@
 // the set of modules they've adopted; the hub renders exactly the intersection of
 // (what a module offers) ∩ (what's enabled). This one file is the single source of
 // truth the shell, the sidebar, the overview and the AI layer all read from.
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useContext, useMemo } from 'react'
+import { useAuth } from './auth.jsx'
 
 // ── The three platforms ──────────────────────────────────────────────
 // Shell chrome stays Goalcert purple→blue; each module keeps its signature
@@ -82,6 +83,8 @@ export const NAV = [
   { id: 'casestudy', label: 'Case Study', icon: 'ti-presentation-analytics', module: 'core' },
   { id: 'ops', label: 'Ops Readiness', icon: 'ti-gauge', module: 'core' },
   { id: 'admin', label: 'Admin Console', icon: 'ti-settings', module: 'core' },
+  { id: 'users', label: 'User Management', icon: 'ti-users-group', module: 'core' },
+  { id: 'superadmin', label: 'Platform Owner', icon: 'ti-crown', module: 'core' },
   { id: 'loop', label: 'The Loop', icon: 'ti-refresh', module: 'core' },
   { id: 'audit', label: 'Audit Trail', icon: 'ti-history', module: 'core' },
 ]
@@ -91,36 +94,24 @@ export function navFor(enabled) {
   return NAV.filter(it => it.module === 'core' || enabled.includes(it.module))
 }
 
-// ── Entitlement context (persisted, live-switchable) ─────────────────
-const KEY = 'gc_hub_entitlements'
-const ONBOARDED = 'gc_hub_onboarded'
+// ── Entitlement context (auth-driven: what the user's ORG adopted) ────
+// Entitlements are a tenant property set by the platform owner, not chosen in the
+// browser. This provider is a read model over the authenticated user's org; the
+// SuperAdmin console edits them per-org through the backend.
 const EntCtx = createContext(null)
 
 export function EntitlementProvider({ children }) {
-  const [enabled, setEnabled] = useState(() => {
-    try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (Array.isArray(v)) return v } catch {}
-    return []
-  })
-  const [onboarded, setOnboarded] = useState(() => localStorage.getItem(ONBOARDED) === '1')
-
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(enabled)) } catch {} }, [enabled])
+  const { org } = useAuth()
+  const enabled = useMemo(() => {
+    const list = org?.entitlements && org.entitlements.length ? org.entitlements : MODULE_ORDER
+    return MODULE_ORDER.filter(m => list.includes(m))
+  }, [org])
 
   const api = useMemo(() => ({
     enabled,
     has: (id) => enabled.includes(id),
-    // ordered, deduped setter
-    set: (list) => setEnabled(MODULE_ORDER.filter(m => list.includes(m))),
-    toggle: (id) => setEnabled(prev => prev.includes(id)
-      ? prev.filter(m => m !== id)
-      : MODULE_ORDER.filter(m => [...prev, id].includes(m))),
-    onboarded,
-    completeOnboarding: (list) => {
-      setEnabled(MODULE_ORDER.filter(m => list.includes(m)))
-      setOnboarded(true); try { localStorage.setItem(ONBOARDED, '1') } catch {}
-    },
-    resetOnboarding: () => { setOnboarded(false); try { localStorage.removeItem(ONBOARDED) } catch {} },
     modules: MODULES, order: MODULE_ORDER,
-  }), [enabled, onboarded])
+  }), [enabled])
 
   return <EntCtx.Provider value={api}>{children}</EntCtx.Provider>
 }

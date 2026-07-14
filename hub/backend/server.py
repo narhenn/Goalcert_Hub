@@ -14,7 +14,7 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -29,7 +29,26 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hub-backend")
 
-app = FastAPI(title="GoalCert Hub Backend", version="1.0.0")
+# ── Identity + gateway wiring (auth, orgs/users/roles, secure proxy) ──
+from db import init_db                          # noqa: E402
+from seed import seed_super_admin               # noqa: E402
+import auth_routes                              # noqa: E402
+import admin_routes                             # noqa: E402
+import gateway                                  # noqa: E402
+from deps import require_admin                  # noqa: E402
+
+app = FastAPI(title="GoalCert Hub Backend", version="2.0.0")
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    init_db()
+    seed_super_admin()
+
+
+app.include_router(auth_routes.router)
+app.include_router(admin_routes.router)
+app.include_router(gateway.router)
 
 # ── Web search tool (DuckDuckGo, no API key needed) ────────────────
 
@@ -55,7 +74,21 @@ def web_search(query: str, max_results: int = 5) -> str:
     except Exception as e:
         logger.warning("web_search failed: %s", e)
         return f"Web search unavailable: {e}"
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# CORS — locked down in production. Set CORS_ORIGINS to a comma-separated allowlist
+# (e.g. https://hub.goalcert.io). Defaults to the local dev frontend.
+_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5180,http://localhost:5173,http://127.0.0.1:5180")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _origins.split(",") if o.strip()],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/admin/platform")
+def platform_status(_=Depends(require_admin)):
+    """Gateway/service configuration for the admin observability panel (no secrets)."""
+    return {"services": gateway.gateway_status()}
 
 # ── LLM clients (lazy init) ────────────────────────────────────────
 

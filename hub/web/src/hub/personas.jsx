@@ -7,6 +7,7 @@
 // they own, and their definition of "done". Entitlements still gate which
 // platforms exist underneath — persona ∩ entitlement = the rendered UI.
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useAuth } from './auth.jsx'
 
 // ── The seven-stage loop (print this above every design review) ───────
 export const LOOP_STAGES = [
@@ -84,59 +85,70 @@ export const PERSONAS = {
     id: 'admin', label: 'Admin / IT', short: 'Admin', icon: 'ti-settings',
     accent: '#64748b', accentSoft: 'rgba(100,116,139,.12)',
     entry: 'Configuration console',
-    blurb: 'SSO / SCIM provisioning → data connectors (SAP, Workday, Maximo, ServiceNow, IIoT) → twin ingestion → role & policy → platform observability.',
-    done: 'Platform trusted by IT and Security',
+    blurb: 'Create user accounts, assign persona roles, wire data connectors (SAP, Workday, Maximo, ServiceNow, IIoT) → twin ingestion → platform observability.',
+    done: 'Right people, right roles, platform trusted',
     stages: [],
     platforms: ['twin', 'scenario', 'agentic'],
-    nav: ['admin', 'build', 'twins', 'audit', 'loop'],
+    nav: ['admin', 'users', 'build', 'twins', 'audit', 'loop'],
     defaultRoute: 'admin',
   },
+  superadmin: {
+    id: 'superadmin', label: 'Platform Owner', short: 'Owner', icon: 'ti-crown',
+    accent: '#b45309', accentSoft: 'rgba(180,83,9,.12)',
+    entry: 'Platform console',
+    blurb: 'Provision organisations, seat their admins, set each tenant\'s entitlements and policy, and watch platform + service health across every tenant.',
+    done: 'Every tenant provisioned and trusted',
+    stages: [],
+    platforms: ['twin', 'scenario', 'agentic'],
+    nav: ['superadmin', 'loop', 'audit'],
+    defaultRoute: 'superadmin',
+  },
 }
+// operational personas an admin can assign / preview (super_admin excluded)
 export const PERSONA_ORDER = ['frontline', 'supervisor', 'lnd', 'compliance', 'coo', 'admin']
 
-// ── Persona context (persisted; switchable any time from the topbar) ──
-const KEY = 'gc_hub_persona'
-const POLICY_KEY = 'gc_hub_policy'
+// a user's assigned role decides their persona — not a free picker.
+export function personaForRole(role) {
+  if (role === 'super_admin') return 'superadmin'
+  return PERSONAS[role] ? role : null
+}
+
+// ── Persona context (auth-driven; locked to the assigned role) ────────
+// The persona is decided by the user's role. Only super_admin / admin may
+// "preview as" another persona to see that dashboard; operational users are
+// locked to their own. Policy comes from the org (server), not the browser.
 const PersonaCtx = createContext(null)
 
-// default policy: each persona sees exactly its registry platforms
-const defaultPolicy = () => Object.fromEntries(PERSONA_ORDER.map(p => [p, [...PERSONAS[p].platforms]]))
-
 export function PersonaProvider({ children }) {
-  const [personaId, setPersonaId] = useState(() => {
-    const v = localStorage.getItem(KEY)
-    return v && PERSONAS[v] ? v : null
-  })
-  // Admin-editable persona → platform policy (the "role / policy configuration"
-  // surface in the Admin console). Filters which platform nav a persona gets.
-  const [policy, setPolicyState] = useState(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem(POLICY_KEY) || 'null')
-      if (v && typeof v === 'object') return { ...defaultPolicy(), ...v }
-    } catch {}
-    return defaultPolicy()
-  })
+  const { user } = useAuth()
+  const role = user?.role || null
+  const homeId = personaForRole(role)
+  const canPreview = role === 'super_admin' || role === 'admin'
+  const [previewId, setPreviewId] = useState(null)
 
-  useEffect(() => {
-    if (personaId) localStorage.setItem(KEY, personaId)
-    else localStorage.removeItem(KEY)
-  }, [personaId])
-  useEffect(() => { try { localStorage.setItem(POLICY_KEY, JSON.stringify(policy)) } catch {} }, [policy])
+  // a new login resets any preview
+  useEffect(() => { setPreviewId(null) }, [role])
+
+  const personaId = (canPreview && previewId && PERSONAS[previewId]) ? previewId : homeId
+  const policy = user?.policy || {}
 
   const api = useMemo(() => ({
     personaId,
     persona: personaId ? PERSONAS[personaId] : null,
-    setPersona: (id) => { if (PERSONAS[id]) setPersonaId(id) },
-    clearPersona: () => setPersonaId(null),
+    homeId,
+    role,
+    canPreview,
+    isPreview: !!(previewId && previewId !== homeId),
+    previewAs: (id) => { if (canPreview && PERSONAS[id]) setPreviewId(id) },
+    exitPreview: () => setPreviewId(null),
     policy,
-    allows: (pid, moduleId) => (policy[pid] || PERSONAS[pid]?.platforms || []).includes(moduleId),
-    togglePolicy: (pid, moduleId) => setPolicyState(prev => {
-      const cur = prev[pid] || [...(PERSONAS[pid]?.platforms || [])]
-      const next = cur.includes(moduleId) ? cur.filter(m => m !== moduleId) : [...cur, moduleId]
-      return { ...prev, [pid]: next }
-    }),
-    resetPolicy: () => setPolicyState(defaultPolicy()),
-  }), [personaId, policy])
+    // org policy gates which platform a persona may use; admins/owners see all entitled
+    allows: (pid, moduleId) => {
+      if (pid === 'admin' || pid === 'superadmin') return true
+      const list = policy[pid]
+      return list ? list.includes(moduleId) : (PERSONAS[pid]?.platforms || []).includes(moduleId)
+    },
+  }), [personaId, homeId, role, canPreview, previewId, policy])
 
   return <PersonaCtx.Provider value={api}>{children}</PersonaCtx.Provider>
 }
