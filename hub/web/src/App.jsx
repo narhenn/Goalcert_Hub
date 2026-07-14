@@ -25,7 +25,7 @@ import LiveDashboard from './modules/twin/LiveDashboard.jsx'
 import BuildTwin from './modules/twin/BuildTwin.jsx'
 import Prediction from './modules/twin/Prediction.jsx'
 import Scenario from './modules/scenario/Scenario.jsx'
-import Trainer from './modules/scenario/Trainer.jsx'
+import SimulationWorkspace from './modules/simulation/SimulationWorkspace.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
@@ -283,12 +283,11 @@ function Shell() {
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
           {route === 'scenario' && (active ? <Scenario /> : <NeedAsset onNav={go} />)}
-          {route === 'train' && (active
-            ? <div className="panel"><div className="panel-header"><div>
-                <div className="panel-title">Train with AI</div>
-                <div className="panel-subtitle">{active.name} · interactive guided-repair simulator with scoring</div>
-              </div></div><Trainer /></div>
-            : <NeedAsset onNav={go} />)}
+          {/* Train with AI — the Simulation module. Renders its own panel + tab bar.
+              Deliberately NOT gated on an active twin: the cascade engine simulates a
+              railway scenario, which has no twin dependency. The one tab that DOES need a
+              twin (the guided drill) asks for one itself. */}
+          {route === 'train' && <SimulationWorkspace />}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
           {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
           {route === 'supervisor' && <SupervisorDashboard />}

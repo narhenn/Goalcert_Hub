@@ -24,8 +24,8 @@ export const MODULES = {
     id: 'scenario', label: 'Scenario Engine', short: 'Scenario', icon: 'ti-adjustments-bolt',
     accent: '#D07C1E', accentSoft: 'rgba(208,124,30,.12)',
     role: 'Author, run & score what-ifs and training',
-    blurb: 'Drive the twin through what-if scenarios and injected faults, score the outcome against KPIs, and drill operators with interactive training.',
-    features: ['Scenario library & authoring', 'Fault injection', 'What-if run + KPIs', 'Train-with-AI simulator'],
+    blurb: 'Drive the twin through what-if scenarios and injected faults, score the outcome against KPIs, and drill operators with interactive training. Its simulation engine expands a single fault into the full cause→consequence cascade it triggers — and names the consequences that were preventable.',
+    features: ['Scenario library & authoring', 'Fault injection', 'Cascade simulation (cause → consequence)', 'Preventable-consequence analysis', 'What-if: re-run at higher readiness', 'Train-with-AI simulator'],
   },
   agentic: {
     id: 'agentic', label: 'Agentic AI', short: 'Agents', icon: 'ti-robot',

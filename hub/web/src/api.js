@@ -102,6 +102,23 @@ const API = {
     runDetail: (runId) => get(`/api/scenario/runs/${runId}`),
     runEvents: (runId) => get(`/api/scenario/runs/${runId}/events`),
     dashboard: () => get('/api/scenario/dashboard'),
+
+    // ── Simulation module (Train with AI) ──
+    // The Dynamic Scenario Graph: run one fault scenario and let the engine expand the
+    // full cause→consequence cascade it triggers. Powers modules/simulation.
+    //
+    // These hit the engine's ROOT paths (/scenarios, /runs/graph) through the gateway,
+    // so the hub must run with SCENARIO_PATH_PREFIX="" — see hub/backend/.env.example.
+    // `difficulty` is an enum and is capitalised ("Medium"); lowercase 422s.
+    // NOTE: there is no "list run graphs" endpoint, by design — `runs` above lists only
+    // RunRecords from POST /runs, never graph runs (a RunGraph is a DAG of RunResults and
+    // is held in the engine's in-memory _GRAPHS). Re-open a past graph by id with graph().
+    sim: {
+      scenarios: (domain) => get(`/api/scenario/scenarios?domain=${encodeURIComponent(domain)}`),
+      runGraph: (scenarioId, config) =>
+        post('/api/scenario/runs/graph', { scenario_id: scenarioId, config }),
+      graph: (rootRunId) => get(`/api/scenario/runs/graph/${rootRunId}`),
+    },
     guided: () => get('/api/scenario/live/guided'),
     guidedDetail: (id) => get(`/api/scenario/live/guided/${id}`),
     // Tripwire
@@ -193,7 +210,27 @@ function onUnauthorized() {
   try { window.dispatchEvent(new CustomEvent('auth:expired')) } catch {}
 }
 
+// Not every 401 means "your session expired".
+//
+// A 401 can come from two very different places:
+//   1. the hub itself  — the user's JWT is stale  → sign them out. Correct.
+//   2. an UPSTREAM platform (twin / scenario / agents) rejecting the hub's SERVER-SIDE
+//      API key — e.g. SCENARIO_API_KEY set on the engine but not on the hub, or the two
+//      no longer match. The user's session is perfectly valid; it's the machine-to-machine
+//      handshake that failed. Signing the user out here is wrong, and deeply confusing:
+//      you open a page, it renders, and two seconds later you're back at the login screen
+//      because a *config* mismatch was mistaken for an *auth* expiry.
+//
+// gateway.py stamps every proxied response with X-Gateway-Source ("live" when it reached
+// the service, "unavailable" when it couldn't). Its presence is therefore a reliable
+// marker that the status came from upstream, not from the hub's own auth layer.
+function isUpstream(r) {
+  return !!r.headers.get('X-Gateway-Source')
+}
+
 // Throws an Error whose .status is the HTTP code and .detail is the API message.
+// On an upstream auth failure, .upstream is true so callers can say "service key
+// rejected" instead of pretending the user was logged out.
 async function request(method, url, body) {
   const opts = { method, headers: { ...authHeaders() } }
   if (body !== undefined) {
@@ -201,11 +238,15 @@ async function request(method, url, body) {
     opts.body = JSON.stringify(body)
   }
   const r = await fetch(url, opts)
-  if (r.status === 401) onUnauthorized()
+  const upstream = isUpstream(r)
+  if (r.status === 401 && !upstream) onUnauthorized()
   if (!r.ok) {
     let detail = `${method} ${url}: ${r.status}`
     try { const j = await r.json(); if (j?.detail) detail = j.detail } catch {}
-    const err = new Error(detail); err.status = r.status; throw err
+    const err = new Error(detail)
+    err.status = r.status
+    err.upstream = upstream
+    throw err
   }
   const ct = r.headers.get('content-type') || ''
   return ct.includes('application/json') ? r.json() : r.text()
