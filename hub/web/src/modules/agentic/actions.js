@@ -4,7 +4,7 @@
 import { SIG, sevClass, fmt, pct, tilesFor, domainMeta } from '../../lib.jsx'
 import { stubDiagnosis, stubAnalysis } from '../../aiStubs.js'
 import { humanize } from '../../hub/util.js'
-import API from '../../api.js'
+import API, { authHeaders } from '../../api.js'
 
 const worst = (domain, latest = {}) => {
   let w = null
@@ -23,76 +23,53 @@ export const AGENT_ACTIONS = [
   { id: 'cascade', label: 'Cascade analysis', icon: 'ti-affiliate', hint: 'How one fault propagates' },
 ]
 
-// runAgent is now async — callers must await it (AIDrawer handles this)
-export async function runAgent(id, { domain, machineName, twin }) {
-  if (id === 'diagnose') {
+// co-pilot action id → AUTOMIND facade capability (GET /api/agents/capabilities).
+const CAPABILITY = { diagnose: 'diagnose', analysis: 'analyze', cascade: 'cascade', workorder: 'work-order' }
+
+// runAgent is async — callers must await it (AIDrawer handles this).
+// The AUTOMIND agentic layer is the reasoning engine: POST /api/agents/run
+// { capability, tenant, context } → it reads the live twin (by tenant) and returns
+// { result: { text } }. Needs a live tenant + the user's JWT. Without a live tenant
+// (sim twins) or when AUTOMIND is unreachable, we fall back to zero-token local stubs.
+export async function runAgent(id, { domain, machineName, twin, tenant }) {
+  const capability = CAPABILITY[id]
+  if (!capability) return 'Unknown action.'
+
+  if (tenant) {
     try {
-      const r = await fetch('/api/twin/agents/ops/diagnose', {
+      const r = await fetch('/api/agents/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
-        signal: AbortSignal.timeout(6000),
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ capability, tenant, context: { domain, machine_name: machineName } }),
+        signal: AbortSignal.timeout(20000),
       })
-      if (!r.ok) throw new Error(`diagnose: ${r.status}`)
-      const data = await r.json()
-      // NextXR's /agents/ops/diagnose returns { session_id, state } (it starts an
-      // agent session), not a markdown narrative. Use report/result when present;
-      // otherwise render the local diagnosis instead of dumping raw JSON.
-      return data.report || data.result || stubDiagnosis({ domain, machineName, twin }).report
-    } catch {
-      return stubDiagnosis({ domain, machineName, twin }).report
-    }
+      if (r.ok) {
+        const text = pickText(await r.json())
+        if (text) return text
+      }
+    } catch { /* unreachable — fall back to the local stub below */ }
   }
 
-  if (id === 'analysis') {
-    try {
-      const r = await fetch('/api/twin/agents/ops/analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
-        signal: AbortSignal.timeout(6000),
-      })
-      if (!r.ok) throw new Error(`analysis: ${r.status}`)
-      const data = await r.json()
-      return data.report || data.result || JSON.stringify(data)
-    } catch {
-      return stubAnalysis({ domain, machineName, twin }).report
-    }
-  }
+  if (id === 'diagnose') return stubDiagnosis({ domain, machineName, twin }).report
+  if (id === 'analysis') return stubAnalysis({ domain, machineName, twin }).report
+  if (id === 'cascade') return cascadeStub({ domain, machineName, twin })
+  return workOrderStub({ domain, machineName, twin })
+}
 
-  if (id === 'workorder') {
-    try {
-      const r = await fetch('/api/agents/agents/workorder/execute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ variables: { domain, machine_name: machineName, twin_state: twin } }),
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!r.ok) throw new Error(`workorder: ${r.status}`)
-      const data = await r.json()
-      return data.report || data.result || JSON.stringify(data)
-    } catch {
-      return workOrderStub({ domain, machineName, twin })
-    }
+// AUTOMIND facade returns { result: { text } } for narrative capabilities, or a
+// structured object for others (e.g. work-order → { wo_number, priority, ... }).
+// Render text when present, else fold a structured deliverable into readable markdown.
+function pickText(d) {
+  const res = d?.result
+  if (typeof res === 'string') return res
+  if (res?.text) return res.text
+  if (res?.report) return res.report
+  if (res && typeof res === 'object' && Object.keys(res).length) {
+    return Object.entries(res)
+      .map(([k, v]) => `**${k.replace(/_/g, ' ')}:** ${v && typeof v === 'object' ? JSON.stringify(v) : v}`)
+      .join('\n')
   }
-
-  if (id === 'cascade') {
-    try {
-      const r = await fetch('/api/twin/agents/ops/cascade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain, machine_name: machineName, twin_state: twin }),
-        signal: AbortSignal.timeout(6000),
-      })
-      if (!r.ok) throw new Error(`cascade: ${r.status}`)
-      const data = await r.json()
-      return data.report || data.result || JSON.stringify(data)
-    } catch {
-      return cascadeStub({ domain, machineName, twin })
-    }
-  }
-
-  return 'Unknown action.'
+  return d?.report || d?.text || null
 }
 
 function workOrderStub({ domain, machineName, twin }) {
