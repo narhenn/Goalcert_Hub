@@ -62,6 +62,16 @@ export function SimProvider({ children }) {
   // verdicts. So the engine is either connected (LIVE) or it isn't, and when it isn't we
   // say so. We still call probeAll() so the shared service state — and the Admin
   // observability panel — sees the engine come up, exactly like Twin and Agents.
+  // Re-read the scenario library. Called on mount, and again after AI authoring — a
+  // newly authored scenario is registered engine-side, so it only appears in the picker
+  // once we ask again.
+  const refreshScenarios = useCallback(async () => {
+    const list = await API.scenario.sim.scenarios(domain)
+    const faults = (list || []).filter(s => s.node_kind === 'fault')
+    setScenarios(faults)
+    return faults
+  }, [domain])
+
   useEffect(() => {
     let alive = true
     setLoadingScenarios(true)
@@ -239,7 +249,7 @@ export function SimProvider({ children }) {
 
   const value = useMemo(() => ({
     domain, meta,
-    scenarios, loadingScenarios, engineUp,
+    scenarios, loadingScenarios, engineUp, refreshScenarios,
     scenarioId, setScenarioId,
     readiness, setReadiness, effReadiness,
     conditions, toggleCondition,
@@ -247,9 +257,10 @@ export function SimProvider({ children }) {
     selectedId, setSelectedId,
     history, refreshHistory,
     playhead, playing, end, togglePlay, restart, seek,
-  }), [domain, meta, scenarios, loadingScenarios, engineUp, scenarioId, readiness,
-    effReadiness, conditions, toggleCondition, graph, running, error, run, runAt, openRun,
-    selectedId, history, refreshHistory, playhead, playing, end, togglePlay, restart, seek])
+  }), [domain, meta, scenarios, loadingScenarios, engineUp, refreshScenarios, scenarioId,
+    readiness, effReadiness, conditions, toggleCondition, graph, running, error, run, runAt,
+    openRun, selectedId, history, refreshHistory, playhead, playing, end, togglePlay,
+    restart, seek])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

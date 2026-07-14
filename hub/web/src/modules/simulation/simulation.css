@@ -27,6 +27,34 @@
   overflow-x: auto; color: var(--text); white-space: pre;
 }
 
+/* ── AI authoring ───────────────────────────────────────────────── */
+.sim-author-box { margin-top: 12px; resize: vertical; min-height: 66px; }
+.sim-author-eg { display: flex; flex-direction: column; gap: 5px; margin-top: 9px; }
+.sim-eg {
+  text-align: left; font-family: var(--font); font-size: 11px; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 999px; padding: 5px 11px; cursor: pointer; transition: .12s;
+}
+.sim-eg:hover { border-color: var(--brand); color: var(--brand); }
+
+.sim-authored {
+  margin-top: 12px; padding: 12px; border-radius: var(--radius-sm);
+  background: rgba(22, 163, 74, .05); border: 1px solid rgba(22, 163, 74, .25);
+}
+.sim-authored-head { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.sim-authored-head i { color: var(--accent-green); }
+.sim-authored-head .pill { margin-left: auto; }
+.sim-authored-body { font-size: 12px; color: var(--muted); line-height: 1.6; margin-top: 7px; }
+.sim-authored-facts {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+  margin-top: 8px; font-size: 11.5px;
+}
+.sim-authored-facts b { color: var(--text); }
+
+/* ── readiness threshold curve ──────────────────────────────────── */
+.sim-curve { display: block; margin: 4px 0 10px; overflow: visible; }
+.sim-curve-tag { font-family: var(--mono); font-size: 9px; font-weight: 700; }
+
 /* ── builder ────────────────────────────────────────────────────── */
 .sim-builder { align-items: start; }
 .sim-scn-desc { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 12px; }

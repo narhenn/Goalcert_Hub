@@ -102,6 +102,25 @@ const API = {
       runGraph: (scenarioId, config) =>
         post('/api/scenario/runs/graph', { scenario_id: scenarioId, config }),
       graph: (rootRunId) => get(`/api/scenario/runs/graph/${rootRunId}`),
+
+      // Author a runnable scenario from a sentence. The ENGINE calls the LLM — the hub
+      // never does, and never holds an LLM key. The model writes the spec; the engine
+      // still computes the cascade deterministically. Returns the registered Scenario,
+      // which is immediately runnable and appears in the scenario list.
+      // 422 = the description couldn't be turned into something this domain can run.
+      author: (domain, prompt) => post('/api/scenario/scenarios/author', { domain, prompt }),
+
+      // Sweep operator readiness and re-run. The engine has no RNG — identical inputs
+      // always produce an identical run — so this is not a probability sample, it is a
+      // SENSITIVITY sweep: at which readiness does this fault stop cascading?
+      // readinessRange of [r, r] pins a single readiness point.
+      sweep: (scenarioId, domain, readinessRange, iterations = 1) =>
+        post('/api/scenario/runs/monte-carlo', {
+          scenario_id: scenarioId,
+          config: { domain, difficulty: 'Medium', duration_min: 120 },
+          iterations,
+          readiness_range: readinessRange,
+        }),
     },
     guided: () => get('/api/scenario/live/guided'),
     guidedDetail: (id) => get(`/api/scenario/live/guided/${id}`),
