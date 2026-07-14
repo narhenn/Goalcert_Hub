@@ -25,6 +25,7 @@ import { Icon } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { SourceBadge } from '../../services/integration.jsx'
 import { SimProvider, useSim } from './simState.jsx'
+import AssetPicker from '../AssetPicker.jsx'
 import BuilderPane from './panes/BuilderPane.jsx'
 import CascadePane from './panes/CascadePane.jsx'
 import ReportsPane from './panes/ReportsPane.jsx'
@@ -54,7 +55,7 @@ export default function SimulationWorkspace() {
 
 function Workspace() {
   const { graph, engineUp, error, meta, loadingScenarios } = useSim()
-  const { active } = useTwin()
+  const { active, openTwin } = useTwin()
   const connected = engineUp === true
 
   const tabs = connected ? [TWIN_TAB, ...ENGINE_TABS] : [TWIN_TAB]
@@ -101,13 +102,25 @@ function Workspace() {
       </div>
 
       <div className="sim-pane">
+        {/* Twin fault injection needs an active twin — but no persona has BOTH "Twins" and
+            "Scenario & Faults" in its sidebar, so telling an L&D trainer to "open one from
+            Twins" points at a nav item they do not have. Offer the picker right here, the
+            way the old NeedAsset gate did. A prerequisite you cannot satisfy from the page
+            that demands it is just a dead end. */}
         {tab === 'twin' && (
           active
-            ? <Scenario />
-            : <div className="empty">
-                <Icon n="ti-cube" /> Twin fault injection runs against an active digital twin.
-                <div style={{ marginTop: 6 }}>Open a twin from <b>Twins</b> — the engine tabs
-                  above don't need one.</div>
+            ? <Scenario embedded />
+            : <div className="card">
+                <div className="card-title">
+                  <Icon n="ti-cube" /> Pick an asset
+                  <span className="pill pill-surface">twin faults only</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>
+                  Twin fault injection projects one machine's health forward, so it needs a
+                  twin to project. The engine tabs above don't — they model a failure, not a
+                  machine, and work without one.
+                </div>
+                <AssetPicker onOpen={(d, n) => openTwin(d, n)} compact />
               </div>
         )}
         {tab === 'build' && <BuilderPane onRan={() => setTab('sim')} />}
