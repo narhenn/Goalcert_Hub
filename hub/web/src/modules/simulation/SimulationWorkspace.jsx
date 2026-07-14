@@ -1,18 +1,19 @@
-// SimulationWorkspace.jsx — "Train with AI".
+// SimulationWorkspace.jsx — the Simulation Engine, under "Scenario & Faults".
 //
 // The standalone Simulation Engine shipped its own left sidebar (Mission Control,
 // Scenario & Faults, Builder, World Builder, Simulation, Reports, Knowledge Hub). Inside
 // Goalcert there is exactly ONE sidebar — the Hub's. So that navigation collapses into
 // secondary tabs on this page, built from the Hub's existing `.seg` segmented control.
 //
-// Tabs are the four surfaces that are genuinely backend-driven, plus the Hub's own
-// guided-repair drill which already lived here:
+//   Twin Faults — the Hub's own twin what-if surface (Scenario.jsx), needs a live twin
+//   Builder     — pick the fault, set readiness, conditions and safeguards
+//   Simulation  — the cascade DAG, replay, impacts, RCA, interventions
+//   Reports     — exec metrics, chain, risk matrix, evidence, JSON export
+//   History     — every run the engine has executed
 //
-//   Guided Drill — the existing Trainer (twin-based, unchanged)
-//   Builder      — pick the fault, set readiness + conditions
-//   Simulation   — the cascade DAG, replay, impacts, RCA, interventions
-//   Reports      — exec metrics, chain, risk matrix, evidence, JSON export
-//   History      — every run the engine has executed
+// This lives under Scenario & Faults, not Train with AI. The split is the point:
+// modelling a failure is not the same activity as drilling a human through a procedure.
+// Train with AI keeps the guided drill and nothing else.
 //
 // Mission Control / World Builder / Knowledge Hub from the standalone are deliberately
 // NOT ported: they had no backend behind them and rendered hardcoded demo numbers.
@@ -24,18 +25,19 @@ import { Icon } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { SourceBadge } from '../../services/integration.jsx'
 import { SimProvider, useSim } from './simState.jsx'
+import AssetPicker from '../AssetPicker.jsx'
 import BuilderPane from './panes/BuilderPane.jsx'
 import CascadePane from './panes/CascadePane.jsx'
 import ReportsPane from './panes/ReportsPane.jsx'
 import HistoryPane from './panes/HistoryPane.jsx'
-import Trainer from '../scenario/Trainer.jsx'
+import Scenario from '../scenario/Scenario.jsx'
 import './simulation.css'
 
-// The guided drill is the Hub's own, twin-backed, and always available.
-// The four simulation tabs are the Simulation Engine's, and only exist when it is
-// connected — add SCENARIO_BASE_URL + SCENARIO_API_KEY and they appear. That is the
-// whole "turn it on" story: a deployment + two env lines, no frontend change.
-const DRILL_TAB = { id: 'drill', label: 'Guided Drill', icon: 'ti-school' }
+// The twin what-if is the Hub's own and needs a live twin; it is always listed.
+// The four engine tabs only exist when the Simulation Engine is connected — add
+// SCENARIO_BASE_URL + SCENARIO_API_KEY and they appear. That is the whole "turn it on"
+// story: a deployment plus two env lines, no frontend change.
+const TWIN_TAB = { id: 'twin', label: 'Twin Faults', icon: 'ti-cube' }
 const ENGINE_TABS = [
   { id: 'build', label: 'Builder', icon: 'ti-urgent' },
   { id: 'sim', label: 'Simulation', icon: 'ti-chart-dots-3' },
@@ -53,29 +55,29 @@ export default function SimulationWorkspace() {
 
 function Workspace() {
   const { graph, engineUp, error, meta, loadingScenarios } = useSim()
-  const { active } = useTwin()
+  const { active, openTwin } = useTwin()
   const connected = engineUp === true
 
-  const tabs = connected ? [DRILL_TAB, ...ENGINE_TABS] : [DRILL_TAB]
+  const tabs = connected ? [TWIN_TAB, ...ENGINE_TABS] : [TWIN_TAB]
   const [tab, setTab] = useState('build')
 
   // Land on a tab that exists. Before the probe resolves we don't know yet, so once it
-  // does, snap to Builder if the engine is up, or to the drill if it isn't.
+  // does, snap to Builder if the engine is up, or to the twin surface if it isn't.
   useEffect(() => {
     if (loadingScenarios) return
-    setTab(t => (tabs.some(x => x.id === t) ? t : (connected ? 'build' : 'drill')))
+    setTab(t => (tabs.some(x => x.id === t) ? t : (connected ? 'build' : 'twin')))
   }, [connected, loadingScenarios]) // eslint-disable-line
 
   return (
     <div className="panel">
       <div className="panel-header">
         <div>
-          <div className="panel-title">Train with AI</div>
+          <div className="panel-title">Scenario &amp; Faults</div>
           <div className="panel-subtitle">
             {connected
-              ? <>Drill an operator on a procedure, or run a fault through the {meta.label} engine
-                  and watch the cascade it triggers — cause, consequence and what was preventable.</>
-              : <>Drill an operator on a procedure against the live twin.</>}
+              ? <>Inject a fault and watch what it causes. Run it through the {meta.label} engine
+                  to see the whole cascade — cause, consequence, and what was preventable.</>
+              : <>Inject a fault on the live twin and project what it does.</>}
           </div>
         </div>
         <div className="panel-actions">
@@ -100,12 +102,25 @@ function Workspace() {
       </div>
 
       <div className="sim-pane">
-        {tab === 'drill' && (
+        {/* Twin fault injection needs an active twin — but no persona has BOTH "Twins" and
+            "Scenario & Faults" in its sidebar, so telling an L&D trainer to "open one from
+            Twins" points at a nav item they do not have. Offer the picker right here, the
+            way the old NeedAsset gate did. A prerequisite you cannot satisfy from the page
+            that demands it is just a dead end. */}
+        {tab === 'twin' && (
           active
-            ? <Trainer />
-            : <div className="empty">
-                <Icon n="ti-cube" /> The guided drill runs against an active digital twin.
-                <div style={{ marginTop: 6 }}>Open a twin from <b>Twins</b> to start a drill.</div>
+            ? <Scenario embedded />
+            : <div className="card">
+                <div className="card-title">
+                  <Icon n="ti-cube" /> Pick an asset
+                  <span className="pill pill-surface">twin faults only</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 14 }}>
+                  Twin fault injection projects one machine's health forward, so it needs a
+                  twin to project. The engine tabs above don't — they model a failure, not a
+                  machine, and work without one.
+                </div>
+                <AssetPicker onOpen={(d, n) => openTwin(d, n)} compact />
               </div>
         )}
         {tab === 'build' && <BuilderPane onRan={() => setTab('sim')} />}
