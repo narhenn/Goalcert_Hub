@@ -144,12 +144,17 @@ services:
     restart: unless-stopped
 
   # ────────────────────────────────────────────────────
-  # SERVICE 3 — GoalCert Simulation Engine (port 8002)
+  # SERVICE 3 — Simulation Engine (port 8002)
+  #
+  # Now vendored in-repo at services/simulation-engine (was an external checkout).
+  # Headless: it serves no UI of its own. The browser never talks to it — the Hub
+  # gateway (/api/scenario/*) is the only way in, and it authenticates first.
+  # Its routes sit at the ROOT, so the hub must run with SCENARIO_PATH_PREFIX="".
   # ────────────────────────────────────────────────────
 
   goalcert:
     build:
-      context: ../../GoalCert-Simulation-Engine/backend
+      context: ./services/simulation-engine/backend
       dockerfile: Dockerfile
     container_name: hub-goalcert
     ports:

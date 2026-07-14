@@ -80,6 +80,23 @@ const API = {
     runDetail: (runId) => get(`/api/scenario/runs/${runId}`),
     runEvents: (runId) => get(`/api/scenario/runs/${runId}/events`),
     dashboard: () => get('/api/scenario/dashboard'),
+
+    // ── Simulation module (Train with AI) ──
+    // The Dynamic Scenario Graph: run one fault scenario and let the engine expand the
+    // full cause→consequence cascade it triggers. Powers modules/simulation.
+    //
+    // These hit the engine's ROOT paths (/scenarios, /runs/graph) through the gateway,
+    // so the hub must run with SCENARIO_PATH_PREFIX="" — see hub/backend/.env.example.
+    // `difficulty` is an enum and is capitalised ("Medium"); lowercase 422s.
+    // NOTE: there is no "list run graphs" endpoint, by design — `runs` above lists only
+    // RunRecords from POST /runs, never graph runs (a RunGraph is a DAG of RunResults and
+    // is held in the engine's in-memory _GRAPHS). Re-open a past graph by id with graph().
+    sim: {
+      scenarios: (domain) => get(`/api/scenario/scenarios?domain=${encodeURIComponent(domain)}`),
+      runGraph: (scenarioId, config) =>
+        post('/api/scenario/runs/graph', { scenario_id: scenarioId, config }),
+      graph: (rootRunId) => get(`/api/scenario/runs/graph/${rootRunId}`),
+    },
     guided: () => get('/api/scenario/live/guided'),
     guidedDetail: (id) => get(`/api/scenario/live/guided/${id}`),
     // Tripwire

@@ -1,0 +1,232 @@
+// simState.jsx — the Simulation module's state.
+//
+// One context so the Builder, the cascade view, Reports and History all read the same
+// run. Follows the Hub's existing state pattern (twinState/kpiState/loopState): a
+// provider mounted by the workspace, a `useSim()` hook for the panes.
+
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import API from '../../api.js'
+import { useAudit } from '../../hub/audit.jsx'
+import { mapRunGraph, cascadeEnd } from './engine/mapGraph.js'
+import { DEFAULT_DOMAIN, domainMeta, effectiveReadiness } from './engine/domains.js'
+
+const Ctx = createContext(null)
+const HISTORY_KEY = 'gc_sim_runs'
+
+export function useSim() {
+  const ctx = useContext(Ctx)
+  if (!ctx) throw new Error('useSim must be used inside <SimProvider>')
+  return ctx
+}
+
+export function SimProvider({ children }) {
+  const { log } = useAudit()
+
+  const [domain] = useState(DEFAULT_DOMAIN)      // railway today; registry-driven later
+  const meta = domainMeta(domain)
+
+  // ── scenario library (from the engine) ──
+  const [scenarios, setScenarios] = useState([])
+  const [loadingScenarios, setLoadingScenarios] = useState(true)
+  const [engineUp, setEngineUp] = useState(null)  // null = unknown, then true/false
+
+  // ── the operator's inputs ──
+  const [scenarioId, setScenarioId] = useState('')
+  const [readiness, setReadiness] = useState(meta.defaultReadiness)
+  const [conditions, setConditions] = useState(['peak'])
+
+  // ── the run ──
+  const [graph, setGraph] = useState(null)        // mapped view model
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState(null)
+  const [selectedId, setSelectedId] = useState(null)
+  const [history, setHistory] = useState([])
+
+  // ── playback ──
+  const [playhead, setPlayhead] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const raf = useRef(null)
+
+  const effReadiness = effectiveReadiness(domain, readiness, conditions)
+
+  // Load the real scenario library. Only `fault` scenarios are launchable — the
+  // consequence nodes are what the cascade SPAWNS, they are not things you start.
+  useEffect(() => {
+    let alive = true
+    setLoadingScenarios(true)
+    API.scenario.sim.scenarios(domain)
+      .then(list => {
+        if (!alive) return
+        const faults = (list || []).filter(s => s.node_kind === 'fault')
+        setScenarios(faults)
+        setEngineUp(true)
+        setScenarioId(prev => prev || faults[0]?.id || '')
+      })
+      .catch(e => {
+        if (!alive) return
+        setEngineUp(false)
+        setError(e.message || 'Simulation engine unreachable')
+      })
+      .finally(() => alive && setLoadingScenarios(false))
+    return () => { alive = false }
+  }, [domain])
+
+  // ── run history ──
+  //
+  // The engine has no "list graphs" endpoint, and that is deliberate — see the note in
+  // services/simulation-engine/backend/app/services/run_manager.py: a RunGraph is a DAG
+  // of RunResults, not a single RunRecord, so it doesn't fit the RunORM row shape and is
+  // held in memory (_GRAPHS) pending a schema decision. GET /runs therefore only lists
+  // runs started via POST /runs — never graph runs.
+  //
+  // So we keep the INDEX of run ids client-side, but never the data: re-opening a run
+  // re-fetches the real graph from the engine via GET /runs/graph/{id}. Because _GRAPHS
+  // is in-memory, an engine restart drops them and that fetch 404s — which we surface as
+  // "expired" rather than silently showing a stale local copy.
+  const refreshHistory = useCallback(() => {
+    try {
+      setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'))
+    } catch { setHistory([]) }
+  }, [])
+
+  useEffect(() => { refreshHistory() }, [refreshHistory])
+
+  const rememberRun = useCallback((g) => {
+    try {
+      const entry = {
+        rootRunId: g.rootRunId,
+        scenarioId: g.scenarioId,
+        scenarioName: g.scenarioName,
+        readiness: g.readiness,
+        nodes: g.totals.total_nodes,
+        preventable: g.totals.preventable_consequences,
+        contained: !!g.root?.certified,
+        at: new Date().toISOString(),
+      }
+      const prev = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+        .filter(r => r.rootRunId !== entry.rootRunId)
+      const next = [entry, ...prev].slice(0, 30)
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+      setHistory(next)
+    } catch { /* storage disabled — history is a convenience, not the source of truth */ }
+  }, [])
+
+  // Re-open a past run by fetching the real graph back from the engine.
+  const openRun = useCallback(async (rootRunId) => {
+    setRunning(true); setError(null)
+    try {
+      const rg = await API.scenario.sim.graph(rootRunId)
+      const g = mapRunGraph(rg)
+      setGraph(g); setSelectedId(null); setPlayhead(cascadeEnd(g)); setPlaying(false)
+      return g
+    } catch (e) {
+      const gone = e.status === 404
+      setError(gone
+        ? 'That run is no longer held by the engine (its graph store is in-memory and resets on restart). Re-run the scenario to reproduce it — the cascade is deterministic, so you will get the identical graph.'
+        : (e.message || 'Could not load that run'))
+      return null
+    } finally {
+      setRunning(false)
+    }
+  }, [])
+
+  const toggleCondition = useCallback((id) => {
+    setConditions(cs => cs.includes(id) ? cs.filter(c => c !== id) : [...cs, id])
+  }, [])
+
+  // Run one scenario and expand its cascade on the engine.
+  const run = useCallback(async () => {
+    if (!scenarioId) return null
+    setRunning(true); setError(null)
+    try {
+      const rg = await API.scenario.sim.runGraph(scenarioId, {
+        domain,
+        readiness: effReadiness,
+        difficulty: 'Medium',
+        duration_min: 120,
+      })
+      const g = mapRunGraph(rg)
+      setGraph(g)
+      setSelectedId(null)
+      setPlayhead(cascadeEnd(g))   // land on the fully-expanded cascade
+      setPlaying(false)
+      rememberRun(g)
+      log('scenario', 'simulate', `Simulated "${g.scenarioName}"`,
+        `readiness ${g.readiness} · ${g.totals.total_nodes} nodes · ${g.totals.preventable_consequences} preventable`)
+      return g
+    } catch (e) {
+      setError(e.message || 'Run failed')
+      return null
+    } finally {
+      setRunning(false)
+    }
+  }, [scenarioId, domain, effReadiness, log, rememberRun])
+
+  // A second, real run at a different readiness — this is what "what-if" means here.
+  // We do NOT synthesise an improved graph locally; the engine decides whether the
+  // preventable branch still fires.
+  const runAt = useCallback(async (targetReadiness) => {
+    const rg = await API.scenario.sim.runGraph(scenarioId, {
+      domain,
+      readiness: Math.max(0, Math.min(100, targetReadiness)),
+      difficulty: 'Medium',
+      duration_min: 120,
+    })
+    return mapRunGraph(rg)
+  }, [scenarioId, domain])
+
+  // ── playback loop ──
+  const end = graph ? cascadeEnd(graph) : 1
+
+  useEffect(() => {
+    if (!playing || !graph) return
+    let last = null
+    const step = (ts) => {
+      if (last == null) last = ts
+      const dt = (ts - last) / 1000
+      last = ts
+      setPlayhead(p => {
+        const next = p + dt * end / 8     // whole cascade in ~8s
+        if (next >= end) { setPlaying(false); return end }
+        return next
+      })
+      raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf.current)
+  }, [playing, graph, end])
+
+  const togglePlay = useCallback(() => {
+    if (!graph) return
+    setPlaying(p => {
+      if (!p && playhead >= end) setPlayhead(0)   // replay from the top
+      return !p
+    })
+  }, [graph, playhead, end])
+
+  const restart = useCallback(() => {
+    if (!graph) return
+    setPlayhead(0); setPlaying(true)
+  }, [graph])
+
+  const seek = useCallback((t) => {
+    setPlaying(false)
+    setPlayhead(Math.max(0, Math.min(end, t)))
+  }, [end])
+
+  const value = useMemo(() => ({
+    domain, meta,
+    scenarios, loadingScenarios, engineUp,
+    scenarioId, setScenarioId,
+    readiness, setReadiness, effReadiness,
+    conditions, toggleCondition,
+    graph, running, error, run, runAt, openRun,
+    selectedId, setSelectedId,
+    history, refreshHistory,
+    playhead, playing, end, togglePlay, restart, seek,
+  }), [domain, meta, scenarios, loadingScenarios, engineUp, scenarioId, readiness,
+    effReadiness, conditions, toggleCondition, graph, running, error, run, runAt, openRun,
+    selectedId, history, refreshHistory, playhead, playing, end, togglePlay, restart, seek])
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
