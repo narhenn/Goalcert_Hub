@@ -97,10 +97,25 @@ export default function ContentStudio() {
     setPhase('drafting'); setRevealed(0); setApproved({}); setEditing(null); setJustPublished(false)
     draftStartRef.current = Date.now()
 
-    // Integration point: when the AUTOMIND drafting agent ships, the live branch
-    // becomes API.agents.generate(sop) — the local drafter stays as SIM fallback.
+    // LIVE path: AUTOMIND's `draft-content` capability derives all four assets
+    // from the SOP (real LLM when the platform has a key, its deterministic
+    // engine otherwise). The local parser stays as the SIM fallback.
     const { data, source: src } = await withFallback('agents',
-      async () => { await API.agents.health(); return draftAssets(sop, domain) },
+      async () => {
+        const resp = await API.agents.generate(sop, domain)
+        const r = resp?.result
+        if (!r || !Array.isArray(r.lms) || !r.lms.length) throw new Error('bad draft shape')
+        const local = draftAssets(sop, domain)
+        const lines = (v, fb) => (Array.isArray(v) && v.length ? v : fb.lines)
+        return {
+          title: r.title || local.title,
+          lms: { lines: lines(r.lms, local.lms) },
+          xr: { lines: lines(r.xr, local.xr) },
+          faults: { lines: lines(r.faults, local.faults) },
+          ar: { lines: lines(r.ar, local.ar) },
+          domain,
+        }
+      },
       () => draftAssets(sop, domain))
     setDraft(data); setSource(src)
 

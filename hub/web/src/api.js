@@ -57,18 +57,19 @@ const API = {
       get(`/api/twin/assets/${assetId}/ar-overlay?tenant=${tenant}${version ? `&version=${version}` : ''}`),
   },
 
-  // ── AUTOMIND Agentic AI ──
+  // ── AUTOMIND Agentic AI (hub facade: /api/v1/agents on the platform) ──
+  // One stable verb per capability: `run` for one-shot capabilities, `chat`
+  // for memory-threaded conversation. GET capabilities lists what's on offer.
   agents: {
     health: () => get('/api/agents/health'),
-    list: () => get('/api/agents/agents'),
-    generate: (description) => post('/api/agents/agents/generate', { description }),
-    execute: (agentId, variables = {}) => post(`/api/agents/agents/${agentId}/execute`, { variables }),
-    executionStatus: (execId) => get(`/api/agents/executions/${execId}`),
-    executionLogs: (execId) => get(`/api/agents/executions/${execId}/logs`),
-    streamUrl: (execId) => `/api/agents/executions/${execId}/stream`,
-    templates: () => get('/api/agents/templates'),
-    dashboard: () => get('/api/agents/dashboard/stats'),
-    chat: (agentId, message) => post(`/api/agents/agents/${agentId}/chat`, { message }),
+    capabilities: () => get('/api/agents/capabilities'),
+    run: (capability, context = {}, opts = {}) =>
+      post('/api/agents/run', { capability, context, ...opts }),
+    chat: (capability, message, opts = {}) =>
+      post('/api/agents/chat', { capability, message, ...opts }),
+    // Content Studio drafting: SOP → DraftedContent {title, lms[], xr[], faults[], ar[]}
+    generate: (sop, domain) =>
+      post('/api/agents/run', { capability: 'draft-content', context: { sop, domain } }),
   },
 
   // ── GoalCert Simulation Engine ──
@@ -146,22 +147,7 @@ const API = {
     },
   },
 
-  // ── DroneForce ──
-  drone: {
-    health: () => get('/api/drone/health'),
-    fleet: () => get('/api/drone/trainees'),
-    sessionStart: (token) => postAuth('/api/drone/session/start', {}, token),
-    sessionStop: (token) => postAuth('/api/drone/session/stop', {}, token),
-    assign: (droneIds, mission, token) => postAuth('/api/drone/assign', { droneIds, mission }, token),
-    command: (droneId, action, token) => postAuth('/api/drone/command', { droneId, action }, token),
-    frame: (droneId) => `/api/drone/frame/${droneId}`,
-    stream: (droneId) => `/api/drone/stream/${droneId}`,
-    report: (token) => getAuth('/api/drone/report', token),
-    login: (username, password) => post('/api/drone/login', { username, password }),
-    wsUrl: () => `ws://${location.host}/api/drone/ws`,
-  },
-
-  // ── GoalCert Agent Builder (goalcert-platform :8097) ──
+  // ── GoalCert Agent Builder (AUTOMIND hub facade: /api/v1/builder) ──
   // 6-stage guided agent creation + team chat. Gateway proxies /api/agentbuilder/*.
   agentbuilder: {
     health: () => get('/api/agentbuilder/health'),
@@ -191,7 +177,6 @@ const API = {
       ['twin', '/api/twin/health'],
       ['agents', '/api/agents/health'],
       ['scenario', '/api/scenario/health'],
-      ['drone', '/api/drone/health'],
       ['agentbuilder', '/api/agentbuilder/health'],
     ]
     await Promise.allSettled(
@@ -274,22 +259,6 @@ async function postForm(url, formData) {
   }
   const ct = r.headers.get('content-type') || ''
   return ct.includes('application/json') ? r.json() : r.text()
-}
-
-async function getAuth(url, token) {
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  if (!r.ok) throw new Error(`GET ${url}: ${r.status}`)
-  return r.json()
-}
-
-async function postAuth(url, body, token) {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
-  if (!r.ok) throw new Error(`POST ${url}: ${r.status}`)
-  return r.json()
 }
 
 export default API

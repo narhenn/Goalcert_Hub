@@ -16,7 +16,7 @@ const SERVICE_LABELS = {
   twin: 'NextXR Digital Twin',
   agents: 'AUTOMIND Agents',
   scenario: 'GoalCert Scenarios',
-  drone: 'DroneForce',
+  agentbuilder: 'Agent Builder',
 }
 
 function PlatformHealth() {

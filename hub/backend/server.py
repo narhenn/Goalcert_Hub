@@ -9,6 +9,7 @@ Run: uvicorn server:app --port 8090
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -111,6 +112,36 @@ def get_gemini():
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
         _gemini_model = genai.GenerativeModel("gemini-2.0-flash")
     return _gemini_model
+
+
+# Placeholder values from .env templates must not count as "configured".
+_PLACEHOLDERS = {"", "sk-ant-...", "AIza...", "sk-...", "sk-proj-..."}
+
+
+def _key(name: str) -> str:
+    v = os.environ.get(name, "").strip()
+    return "" if v in _PLACEHOLDERS else v
+
+
+def openai_complete(system_prompt: str, user_msg: str, max_tokens: int = 2000) -> tuple[str, int]:
+    """OpenAI chat completion via plain httpx — no SDK dependency needed."""
+    import httpx
+    resp = httpx.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {_key('OPENAI_API_KEY')}"},
+        json={
+            "model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": system_prompt},
+                         {"role": "user", "content": user_msg}],
+        },
+        timeout=90,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    text = (data["choices"][0]["message"]["content"] or "").strip()
+    usage = data.get("usage", {})
+    return text, (usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0))
 
 
 # ── Agent system prompts (the real reasoning layer) ────────────────
@@ -244,7 +275,9 @@ async def run_agent(req: AgentRunRequest):
     tokens = 0
     content = ""
 
-    if req.provider == "gemini" and os.environ.get("GEMINI_API_KEY"):
+    # Provider chain: the requested provider first, then whatever has a key —
+    # Claude → OpenAI → Gemini. The hub works with ANY one of the three keys.
+    if req.provider == "gemini" and _key("GEMINI_API_KEY"):
         try:
             model = get_gemini()
             resp = model.generate_content(
@@ -253,15 +286,12 @@ async def run_agent(req: AgentRunRequest):
             )
             content = resp.text or ""
             tokens = resp.usage_metadata.total_token_count if hasattr(resp, 'usage_metadata') else 0
+            req.provider = "gemini"
             logger.info("gemini: %s produced %d chars", req.role, len(content))
         except Exception as e:
-            logger.warning("gemini failed for %s: %s — falling back to claude", req.role, e)
-            req.provider = "claude"
+            logger.warning("gemini failed for %s: %s — trying the next provider", req.role, e)
 
-    if req.provider == "claude" or not content:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            raise HTTPException(500, "No ANTHROPIC_API_KEY set. Configure in .env.")
+    if not content and _key("ANTHROPIC_API_KEY"):
         try:
             client = get_anthropic()
             resp = client.messages.create(
@@ -276,8 +306,20 @@ async def run_agent(req: AgentRunRequest):
             req.provider = "claude"
             logger.info("claude: %s produced %d chars, %d tokens", req.role, len(content), tokens)
         except Exception as e:
-            logger.error("claude failed for %s: %s", req.role, e)
-            raise HTTPException(500, f"LLM call failed: {e}")
+            logger.warning("claude failed for %s: %s — trying the next provider", req.role, e)
+
+    if not content and _key("OPENAI_API_KEY"):
+        try:
+            content, tokens = openai_complete(system_prompt, user_msg)
+            req.provider = "openai"
+            logger.info("openai: %s produced %d chars, %d tokens", req.role, len(content), tokens)
+        except Exception as e:
+            logger.error("openai failed for %s: %s", req.role, e)
+
+    if not content:
+        raise HTTPException(
+            500, "No LLM provider available — set ANTHROPIC_API_KEY, OPENAI_API_KEY "
+                 "or GEMINI_API_KEY in hub/backend/.env")
 
     # Derive title from role
     titles = {
@@ -434,24 +476,32 @@ async def stream_agent(req: AgentRunRequest):
 
         yield f"data: {_json.dumps({'type': 'meta', 'status': 'streaming'})}\n\n"
 
-        # Stream from Claude
+        # Stream from Claude when we have its key; otherwise OpenAI (chunked).
         try:
-            client = get_anthropic()
-            total_tokens = 0
-            with client.messages.stream(
-                model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
-                max_tokens=2000,
-                system=[{"type": "text", "text": system_prompt,
-                         "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": user_msg}],
-            ) as stream:
-                for text in stream.text_stream:
-                    yield f"data: {_json.dumps({'type': 'delta', 'text': text})}\n\n"
-                # Get final usage
-                response = stream.get_final_message()
-                total_tokens = (response.usage.input_tokens or 0) + (response.usage.output_tokens or 0)
-
-            yield f"data: {_json.dumps({'type': 'done', 'tokens': total_tokens, 'provider': 'claude'})}\n\n"
+            if _key("ANTHROPIC_API_KEY"):
+                client = get_anthropic()
+                total_tokens = 0
+                with client.messages.stream(
+                    model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
+                    max_tokens=2000,
+                    system=[{"type": "text", "text": system_prompt,
+                             "cache_control": {"type": "ephemeral"}}],
+                    messages=[{"role": "user", "content": user_msg}],
+                ) as stream:
+                    for text in stream.text_stream:
+                        yield f"data: {_json.dumps({'type': 'delta', 'text': text})}\n\n"
+                    response = stream.get_final_message()
+                    total_tokens = (response.usage.input_tokens or 0) + (response.usage.output_tokens or 0)
+                yield f"data: {_json.dumps({'type': 'done', 'tokens': total_tokens, 'provider': 'claude'})}\n\n"
+            elif _key("OPENAI_API_KEY"):
+                content, total_tokens = await asyncio.to_thread(
+                    openai_complete, system_prompt, user_msg)
+                for i in range(0, len(content), 120):
+                    yield f"data: {_json.dumps({'type': 'delta', 'text': content[i:i+120]})}\n\n"
+                    await asyncio.sleep(0.02)
+                yield f"data: {_json.dumps({'type': 'done', 'tokens': total_tokens, 'provider': 'openai'})}\n\n"
+            else:
+                yield f"data: {_json.dumps({'type': 'error', 'message': 'No LLM API key configured on the hub.'})}\n\n"
         except Exception as e:
             yield f"data: {_json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
@@ -491,11 +541,38 @@ async def get_brand(facility: str):
 
 @app.get("/api/hive/health")
 def health():
-    has_claude = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    has_gemini = bool(os.environ.get("GEMINI_API_KEY"))
     return {
         "status": "ok",
-        "claude": {"available": has_claude, "model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")},
-        "gemini": {"available": has_gemini},
+        "claude": {"available": bool(_key("ANTHROPIC_API_KEY")),
+                   "model": os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6")},
+        "openai": {"available": bool(_key("OPENAI_API_KEY")),
+                   "model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini")},
+        "gemini": {"available": bool(_key("GEMINI_API_KEY"))},
+        "llm_ready": any(_key(k) for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")),
         "agents": list(AGENT_PROMPTS.keys()),
     }
+
+
+# ── Serve the built SPA (single-origin production deploy) ───────────
+# `npm run build` in hub/web produces hub/web/dist; when it exists the hub
+# backend serves it, so ONE service (this one) is the whole deployable unit:
+# same origin for the app and /api/* — no CORS, no separate static host needed.
+
+_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+if _DIST.exists():
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="spa-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str):
+        # /api/* is handled by the routers above; an unknown /api path is a real
+        # 404, never the SPA shell. Anything else falls through to index.html.
+        if full_path.startswith("api/"):
+            raise HTTPException(404, "Unknown API route")
+        target = _DIST / full_path
+        if full_path and target.is_file():
+            return FileResponse(target)
+        return FileResponse(_DIST / "index.html")
