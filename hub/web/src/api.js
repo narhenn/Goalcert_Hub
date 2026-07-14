@@ -55,6 +55,10 @@ const API = {
     // Versioned AR maintenance overlay for one asset. Returns { version, asset, steps, findings }.
     arOverlay: (assetId, tenant, version) =>
       get(`/api/twin/assets/${assetId}/ar-overlay?tenant=${tenant}${version ? `&version=${version}` : ''}`),
+    // Operational outlook, grounded in the twin's own physics forecast (machine twins) or
+    // its live findings (facility twins). Returns { report, result, kind } — markdown.
+    analysis: (tenant, horizon_min = 360) =>
+      post('/api/twin/agents/ops/analysis', { tenant, horizon_min }),
   },
 
   // ── AUTOMIND Agentic AI ──
@@ -99,8 +103,14 @@ const API = {
     // is held in the engine's in-memory _GRAPHS). Re-open a past graph by id with graph().
     sim: {
       scenarios: (domain) => get(`/api/scenario/scenarios?domain=${encodeURIComponent(domain)}`),
-      runGraph: (scenarioId, config) =>
-        post('/api/scenario/runs/graph', { scenario_id: scenarioId, config }),
+
+      // `environment` is optional: omit it and the engine uses the scenario's own
+      // recommended_environment. Send one and you override the world — which is how
+      // safeguards work. Strip the backup relay from `resources` and the fault that the
+      // relay would have blocked now fires. No engine change needed; this was always in
+      // the contract, the UI just never used it.
+      runGraph: (scenarioId, config, environment) =>
+        post('/api/scenario/runs/graph', { scenario_id: scenarioId, config, environment }),
       graph: (rootRunId) => get(`/api/scenario/runs/graph/${rootRunId}`),
 
       // Author a runnable scenario from a sentence. The ENGINE calls the LLM — the hub
@@ -114,10 +124,11 @@ const API = {
       // always produce an identical run — so this is not a probability sample, it is a
       // SENSITIVITY sweep: at which readiness does this fault stop cascading?
       // readinessRange of [r, r] pins a single readiness point.
-      sweep: (scenarioId, domain, readinessRange, iterations = 1) =>
+      sweep: (scenarioId, config, readinessRange, environment, iterations = 1) =>
         post('/api/scenario/runs/monte-carlo', {
           scenario_id: scenarioId,
-          config: { domain, difficulty: 'Medium', duration_min: 120 },
+          config,
+          environment,
           iterations,
           readiness_range: readinessRange,
         }),

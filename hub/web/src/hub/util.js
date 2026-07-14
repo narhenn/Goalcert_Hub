@@ -1,7 +1,18 @@
 // util.js — small shared helpers for the hub shell.
 import { FAULT_FX } from '../lib.jsx'
 
-export const humanize = (id = '') => id.replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+// Acronyms get upper-cased, so `crac_failure` reads "CRAC Failure" rather than
+// "Crac Failure" and `ups_depletion` reads "UPS Depletion". Title-casing every word
+// blindly makes a product look like it doesn't know its own domain.
+const ACRONYMS = new Set([
+  'crac', 'ups', 'hvac', 'cctv', 'gps', 'plc', 'scada', 'rul', 'egt', 'ai', 'ar',
+  'or', 'icu', 'pue', 'mri', 'edm',
+])
+export const humanize = (id = '') => id
+  .replace(/[_-]+/g, ' ')
+  .split(' ')
+  .map(w => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+  .join(' ')
 
 // A fault catalogue per domain, derived from the simulator's fault-effects map.
 export function faultsFor(domain) {

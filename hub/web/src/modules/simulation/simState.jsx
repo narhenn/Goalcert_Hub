@@ -35,6 +35,14 @@ export function SimProvider({ children }) {
   const [scenarioId, setScenarioId] = useState('')
   const [readiness, setReadiness] = useState(meta.defaultReadiness)
   const [conditions, setConditions] = useState(['peak'])
+  const [difficulty, setDifficulty] = useState('Medium')
+
+  // Safeguards the operator has REMOVED (resource ids). A safeguard is a resource on the
+  // scenario's environment that can block the fault outright (engine: spec.prevention).
+  // Removing it is the "what if we didn't have the backup relay" question — and keeping
+  // it is the "should we buy one" question. This is a different lever from readiness:
+  // readiness is training, a safeguard is capital.
+  const [removedSafeguards, setRemovedSafeguards] = useState([])
 
   // ── the run ──
   const [graph, setGraph] = useState(null)        // mapped view model
@@ -167,17 +175,43 @@ export function SimProvider({ children }) {
     setConditions(cs => cs.includes(id) ? cs.filter(c => c !== id) : [...cs, id])
   }, [])
 
+  const toggleSafeguard = useCallback((id) => {
+    setRemovedSafeguards(rs => rs.includes(id) ? rs.filter(r => r !== id) : [...rs, id])
+  }, [])
+
+  // The safeguards available on the selected scenario, and whether each is currently in
+  // place. They come from the scenario's own recommended_environment — the engine ships
+  // them, we only choose whether to keep them.
+  const selectedScenario = scenarios.find(s => s.id === scenarioId) || null
+  const safeguards = (selectedScenario?.recommended_environment?.resources || []).map(r => ({
+    id: r.id,
+    type: r.type,
+    scope: r.scope,
+    active: !removedSafeguards.includes(r.id),
+  }))
+
+  // The world we actually send. Omit it entirely when nothing was removed, so the engine
+  // uses the scenario's own environment and we aren't quietly re-stating it.
+  const environmentOverride = useCallback(() => {
+    const env = selectedScenario?.recommended_environment
+    if (!env || !removedSafeguards.length) return undefined
+    return { ...env, resources: (env.resources || []).filter(r => !removedSafeguards.includes(r.id)) }
+  }, [selectedScenario, removedSafeguards])
+
+  const runConfig = useCallback((readinessValue) => ({
+    domain,
+    readiness: readinessValue,
+    difficulty,          // Easy | Medium | Hard | Expert — capitalised; lowercase 422s
+    duration_min: 120,
+  }), [domain, difficulty])
+
   // Run one scenario and expand its cascade on the engine.
   const run = useCallback(async () => {
     if (!scenarioId) return null
     setRunning(true); setError(null)
     try {
-      const rg = await API.scenario.sim.runGraph(scenarioId, {
-        domain,
-        readiness: effReadiness,
-        difficulty: 'Medium',
-        duration_min: 120,
-      })
+      const rg = await API.scenario.sim.runGraph(
+        scenarioId, runConfig(effReadiness), environmentOverride())
       const g = mapRunGraph(rg)
       setGraph(g)
       setSelectedId(null)
@@ -193,20 +227,19 @@ export function SimProvider({ children }) {
     } finally {
       setRunning(false)
     }
-  }, [scenarioId, domain, effReadiness, log, rememberRun])
+  }, [scenarioId, effReadiness, runConfig, environmentOverride, log, rememberRun])
 
   // A second, real run at a different readiness — this is what "what-if" means here.
   // We do NOT synthesise an improved graph locally; the engine decides whether the
   // preventable branch still fires.
   const runAt = useCallback(async (targetReadiness) => {
-    const rg = await API.scenario.sim.runGraph(scenarioId, {
-      domain,
-      readiness: Math.max(0, Math.min(100, targetReadiness)),
-      difficulty: 'Medium',
-      duration_min: 120,
-    })
+    const rg = await API.scenario.sim.runGraph(
+      scenarioId,
+      runConfig(Math.max(0, Math.min(100, targetReadiness))),
+      environmentOverride(),
+    )
     return mapRunGraph(rg)
-  }, [scenarioId, domain])
+  }, [scenarioId, runConfig, environmentOverride])
 
   // ── playback loop ──
   const end = graph ? cascadeEnd(graph) : 1
@@ -250,17 +283,21 @@ export function SimProvider({ children }) {
   const value = useMemo(() => ({
     domain, meta,
     scenarios, loadingScenarios, engineUp, refreshScenarios,
-    scenarioId, setScenarioId,
+    scenarioId, setScenarioId, selectedScenario,
     readiness, setReadiness, effReadiness,
     conditions, toggleCondition,
+    difficulty, setDifficulty,
+    safeguards, toggleSafeguard, removedSafeguards,
+    runConfig, environmentOverride,
     graph, running, error, run, runAt, openRun,
     selectedId, setSelectedId,
     history, refreshHistory,
     playhead, playing, end, togglePlay, restart, seek,
   }), [domain, meta, scenarios, loadingScenarios, engineUp, refreshScenarios, scenarioId,
-    readiness, effReadiness, conditions, toggleCondition, graph, running, error, run, runAt,
-    openRun, selectedId, history, refreshHistory, playhead, playing, end, togglePlay,
-    restart, seek])
+    selectedScenario, readiness, effReadiness, conditions, toggleCondition,
+    difficulty, safeguards, toggleSafeguard, removedSafeguards, runConfig, environmentOverride,
+    graph, running, error, run, runAt, openRun, selectedId, history, refreshHistory,
+    playhead, playing, end, togglePlay, restart, seek])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

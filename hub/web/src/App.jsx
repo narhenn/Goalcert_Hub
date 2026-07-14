@@ -31,7 +31,9 @@ import BatteryHeatmap from './modules/twin/BatteryHeatmap.jsx'
 import BedBoard from './modules/twin/BedBoard.jsx'
 import MedGasSchematic from './modules/twin/MedGasSchematic.jsx'
 import TacticalMap from './modules/twin/TacticalMap.jsx'
-import Scenario from './modules/scenario/Scenario.jsx'
+// Scenario.jsx (twin fault injection) is no longer routed from here — it is the
+// "Twin Faults" tab inside SimulationWorkspace, which now owns the Scenario & Faults page.
+import Trainer from './modules/scenario/Trainer.jsx'
 import SimulationWorkspace from './modules/simulation/SimulationWorkspace.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
@@ -315,18 +317,39 @@ function Shell() {
           {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} /> : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
+          {/* main's new per-vertical twin dashboards — kept as-is */}
           {route === 'networkmap' && (active ? <NetworkMap /> : <NeedAsset onNav={go} />)}
           {route === 'chargingmap' && (active ? <ChargingMap /> : <NeedAsset onNav={go} />)}
           {route === 'batteryheatmap' && (active ? <BatteryHeatmap /> : <NeedAsset onNav={go} />)}
           {route === 'bedboard' && (active ? <BedBoard /> : <NeedAsset onNav={go} />)}
           {route === 'medgas' && (active ? <MedGasSchematic /> : <NeedAsset onNav={go} />)}
           {route === 'tacticalmap' && (active ? <TacticalMap /> : <NeedAsset onNav={go} />)}
-          {route === 'scenario' && (active ? <Scenario /> : <NeedAsset onNav={go} />)}
-          {/* Train with AI — the Simulation module. Renders its own panel + tab bar.
-              Deliberately NOT gated on an active twin: the cascade engine simulates a
-              railway scenario, which has no twin dependency. The one tab that DOES need a
-              twin (the guided drill) asks for one itself. */}
-          {route === 'train' && <SimulationWorkspace />}
+
+          {/* Scenario & Faults — the Simulation module. Renders its own panel + tab bar:
+              Twin Faults (the old Scenario.jsx, now a tab) plus the cascade engine's
+              Builder / Simulation / Reports / History.
+
+              No longer gated on an active twin. The cascade engine models a railway failure
+              and has no twin dependency; only the Twin Faults tab does, and it offers the
+              asset picker itself. Gating the whole page hid a working simulator behind an
+              unrelated prerequisite. */}
+          {route === 'scenario' && <SimulationWorkspace />}
+
+          {/* Train with AI — the guided repair drill, and only that. Modelling a failure
+              (Scenario & Faults) and drilling a human through a procedure are different
+              activities; keeping them on one page conflated them. */}
+          {route === 'train' && (active
+            ? <div className="panel">
+                <div className="panel-header"><div>
+                  <div className="panel-title">Train with AI</div>
+                  <div className="panel-subtitle">
+                    {active.name} · interactive guided-repair drill, scored on the order you
+                    work in — isolate before you touch anything.
+                  </div>
+                </div></div>
+                <Trainer />
+              </div>
+            : <NeedAsset onNav={go} />)}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
           {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
           {route === 'supervisor' && <SupervisorDashboard />}

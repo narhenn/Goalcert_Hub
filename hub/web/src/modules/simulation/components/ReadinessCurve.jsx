@@ -11,7 +11,7 @@
 //
 // Cost: one engine run per sample point. They're milliseconds each and fire in parallel.
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../../lib.jsx'
 import API from '../../../api.js'
 import { useSim } from '../simState.jsx'
@@ -19,22 +19,27 @@ import { useSim } from '../simState.jsx'
 const STEP = 5   // sample every 5 points of readiness → 21 runs
 
 export default function ReadinessCurve() {
-  const { scenarioId, domain, effReadiness, scenarios } = useSim()
+  const { scenarioId, selectedScenario, effReadiness, runConfig, environmentOverride,
+    difficulty, removedSafeguards } = useSim()
   const [points, setPoints] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
-  const scenario = scenarios.find(s => s.id === scenarioId)
+  const scenario = selectedScenario
 
+  // The sweep must use the SAME world as the run, or its answer is about a different
+  // scenario than the one you're about to run. Remove the backup relay and the threshold
+  // moves; change difficulty and it moves again. Re-sweep when they do.
   const sweep = async () => {
     setBusy(true); setError(null); setPoints(null)
     const levels = []
     for (let r = 0; r <= 100; r += STEP) levels.push(r)
     try {
+      const env = environmentOverride()
       const results = await Promise.all(
         // readiness_range [r, r] pins the sweep to exactly one readiness, so one
         // iteration is enough — a second would be a byte-identical rerun.
-        levels.map(r => API.scenario.sim.sweep(scenarioId, domain, [r, r], 1)),
+        levels.map(r => API.scenario.sim.sweep(scenarioId, runConfig(r), [r, r], env, 1)),
       )
       setPoints(levels.map((r, i) => ({
         readiness: r,
@@ -47,6 +52,15 @@ export default function ReadinessCurve() {
       setBusy(false)
     }
   }
+
+  // A threshold computed WITH the backup relay is a lie the moment you remove it, and the
+  // same goes for difficulty. Rather than show a stale line, drop it and make the operator
+  // re-sweep — the curve should never describe a world you are not about to run.
+  const world = `${scenarioId}|${difficulty}|${[...removedSafeguards].sort().join(',')}`
+  const lastWorld = useRef(world)
+  useEffect(() => {
+    if (lastWorld.current !== world) { lastWorld.current = world; setPoints(null) }
+  }, [world])
 
   if (!scenarioId) return null
 
