@@ -49,6 +49,12 @@ const API = {
     feedStop: () => post('/api/twin/feed/stop'),
     feedStatus: () => get('/api/twin/feed/status'),
     streamUrl: (tenant) => `/api/twin/bus/stream?tenant=${tenant}`,
+    // Forward trajectory + remaining-useful-life. Returns { kind, trajectory, rul, severity }.
+    predict: (tenant, horizon_min = 360, points = 60) =>
+      post('/api/twin/predict', { tenant, horizon_min, points }),
+    // Versioned AR maintenance overlay for one asset. Returns { version, asset, steps, findings }.
+    arOverlay: (assetId, tenant, version) =>
+      get(`/api/twin/assets/${assetId}/ar-overlay?tenant=${tenant}${version ? `&version=${version}` : ''}`),
   },
 
   // ── AUTOMIND Agentic AI ──

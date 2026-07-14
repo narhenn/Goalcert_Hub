@@ -1,10 +1,12 @@
 // Prediction.jsx — the Digital Twin's forecast surface: trajectory projection,
 // time-to-limit and at-risk signals. Deterministic (the twin's own prediction),
 // no LLM — runs on the frontend simulator's forward trajectory.
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Icon, SIG, fmt, pct, hColor, predictCharts, simTrajectory, signalsAtRisk } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
+import { SourceBadge } from '../../services/integration.jsx'
 import MiniChart from '../../hub/MiniChart.jsx'
+import API from '../../api.js'
 
 const HORIZONS = [
   { label: '2 hours', min: 120 }, { label: '6 hours', min: 360 },
@@ -12,14 +14,34 @@ const HORIZONS = [
 ]
 
 export default function Prediction() {
-  const { active, twin, simFault } = useTwin()
+  const { active, twin, simFault, serviceMode } = useTwin()
   const [hi, setHi] = useState(1)
+  const [live, setLive] = useState(null)   // { traj, rul, severity } from the NextXR /predict endpoint
   const horizon = HORIZONS[hi]
   const charts = predictCharts(active.domain)
 
-  const traj = useMemo(
+  // the twin's own forward simulator — always available as the baseline / fallback
+  const simTraj = useMemo(
     () => simTrajectory(active.domain, horizon.min, 48, simFault, 1),
     [active.domain, horizon.min, simFault])
+
+  // live forecast from NextXR when a real tenant is attached; falls back to the sim
+  useEffect(() => {
+    let cancelled = false
+    setLive(null)
+    if (serviceMode !== 'live' || !active?.tenant) return
+    ;(async () => {
+      try {
+        const data = await API.twin.predict(active.tenant, horizon.min)
+        if (!cancelled && Array.isArray(data?.trajectory) && data.trajectory.length)
+          setLive({ traj: data.trajectory, rul: data.rul || [], severity: data.severity })
+      } catch { /* twin unreachable — keep the sim baseline */ }
+    })()
+    return () => { cancelled = true }
+  }, [active, horizon.min, serviceMode])
+
+  const source = live ? 'live' : 'sim'
+  const traj = live?.traj?.length ? live.traj : simTraj
   const last = traj[traj.length - 1] || {}
   const atRisk = signalsAtRisk(active.domain, last) || []
   const projH = last.health
@@ -29,7 +51,7 @@ export default function Prediction() {
       <div className="panel-header">
         <div>
           <div className="panel-title">Prediction</div>
-          <div className="panel-subtitle">{active.name} · trajectory projection & remaining-useful-life</div>
+          <div className="panel-subtitle">{active.name} · trajectory projection & remaining-useful-life <SourceBadge source={source} /></div>
         </div>
         <div className="panel-actions">
           {HORIZONS.map((hz, i) => (
@@ -61,6 +83,23 @@ export default function Prediction() {
           </div>
         ))}
       </div>
+
+      {live?.rul?.length > 0 && (
+        <div className="card section-gap">
+          <div className="card-title"><Icon n="ti-hourglass-high" /> Remaining useful life <SourceBadge source="live" /></div>
+          <div className="event-list">
+            {live.rul.map((r, i) => (
+              <div key={i} className="event-item">
+                <div className={`event-icon ${r.severity === 'critical' ? 'ev-crit' : 'ev-warn'}`}><Icon n="ti-clock-hour-4" /></div>
+                <div className="event-body">
+                  <div className="event-title">{r.component}</div>
+                  <div className="event-meta">~{fmt(r.minutes)} min to service{r.severity ? ` · ${r.severity}` : ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card section-gap">
         <div className="card-title"><Icon n="ti-alert-triangle" /> Time-to-limit
