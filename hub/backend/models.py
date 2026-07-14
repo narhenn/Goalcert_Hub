@@ -32,14 +32,14 @@ ASSIGNABLE_BY = {
 }
 
 # default org entitlements + persona policy (mirrors the frontend registry)
-DEFAULT_ENTITLEMENTS = ["twin", "scenario", "agentic", "hivemind", "frontline", "supervisor"]
+DEFAULT_ENTITLEMENTS = ["twin", "scenario", "agentic", "agentbuilder", "hivemind", "frontline", "supervisor"]
 DEFAULT_POLICY = {
     "frontline": ["twin", "scenario", "agentic"],
     "supervisor": ["twin", "agentic"],
-    "lnd": ["scenario", "agentic"],
+    "lnd": ["scenario", "agentic", "agentbuilder"],
     "compliance": ["twin", "scenario"],
-    "coo": ["twin", "agentic", "hivemind"],
-    "admin": ["twin", "scenario", "agentic"],
+    "coo": ["twin", "agentic", "agentbuilder", "hivemind"],
+    "admin": ["twin", "scenario", "agentic", "agentbuilder"],
 }
 
 STATUSES = ["active", "pending", "disabled"]

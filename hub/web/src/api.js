@@ -71,6 +71,22 @@ const API = {
     chat: (agentId, message) => post(`/api/agents/agents/${agentId}/chat`, { message }),
   },
 
+  // ── GoalCert Agent Builder (goalcert-platform :8097) ──
+  // 6-stage guided agent creation + team chat. Gateway proxies /api/agentbuilder/*.
+  agentbuilder: {
+    health: () => get('/api/agentbuilder/health'),
+    list: () => get('/api/agentbuilder/agents'),
+    create: (agent) => post('/api/agentbuilder/agents/create', agent),
+    update: (agentId, changes) => put(`/api/agentbuilder/agents/${agentId}`, changes),
+    remove: (agentId) => del(`/api/agentbuilder/agents/${agentId}`),
+    test: (agentId, input = {}) => post(`/api/agentbuilder/agents/${agentId}/test`, input),
+    templates: () => get('/api/agentbuilder/templates'),
+    tools: () => get('/api/agentbuilder/tools'),
+    // SSE endpoints (POST + read the response body stream — see hivemind/engine.js).
+    chatPath: (agentId) => `/api/agentbuilder/agents/${agentId}/chat`,
+    teamChatPath: () => '/api/agentbuilder/team/chat',
+  },
+
   // ── GoalCert Simulation Engine ──
   scenario: {
     health: () => get('/api/scenario/health'),

@@ -35,7 +35,10 @@ export async function runAgent(id, { domain, machineName, twin }) {
       })
       if (!r.ok) throw new Error(`diagnose: ${r.status}`)
       const data = await r.json()
-      return data.report || data.result || JSON.stringify(data)
+      // NextXR's /agents/ops/diagnose returns { session_id, state } (it starts an
+      // agent session), not a markdown narrative. Use report/result when present;
+      // otherwise render the local diagnosis instead of dumping raw JSON.
+      return data.report || data.result || stubDiagnosis({ domain, machineName, twin }).report
     } catch {
       return stubDiagnosis({ domain, machineName, twin }).report
     }
