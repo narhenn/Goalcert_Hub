@@ -82,7 +82,7 @@ function HiveMindStats({ onNav }) {
   return (
     <div className="card" style={{ cursor: totalBriefs > 0 ? 'pointer' : 'default' }} onClick={() => totalBriefs > 0 && onNav('hivemind')}>
       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 22, height: 22, borderRadius: '30%', background: '#7A5CF0', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>
+        <span style={{ width: 22, height: 22, borderRadius: '30%', background: 'var(--brand-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>
           <Icon n="ti-hexagon" />
         </span>
         AUTOMIND Hive
@@ -96,15 +96,15 @@ function HiveMindStats({ onNav }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{totalBriefs}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: 'var(--brand-2)' }}>{totalBriefs}</div>
               <div className="hint" style={{ fontSize: 10 }}>briefs run</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{totalTokens > 0 ? (totalTokens / 1000).toFixed(1) + 'K' : '—'}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: 'var(--brand-2)' }}>{totalTokens > 0 ? (totalTokens / 1000).toFixed(1) + 'K' : '—'}</div>
               <div className="hint" style={{ fontSize: 10 }}>tokens used</div>
             </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: '#7A5CF0' }}>{lastBrief?.agentsUsed?.length || 0}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--display)', color: 'var(--brand-2)' }}>{lastBrief?.agentsUsed?.length || 0}</div>
               <div className="hint" style={{ fontSize: 10 }}>last agents</div>
             </div>
           </div>
@@ -117,7 +117,7 @@ function HiveMindStats({ onNav }) {
         </div>
       )}
       <div style={{ marginTop: 10 }}>
-        <button className="btn" style={{ fontSize: 11, padding: '4px 10px', color: '#7A5CF0' }} onClick={e => { e.stopPropagation(); onNav('hivemind') }}>
+        <button className="btn" style={{ fontSize: 11, padding: '4px 10px', color: 'var(--brand-2)' }} onClick={e => { e.stopPropagation(); onNav('hivemind') }}>
           <Icon n="ti-arrow-right" /> Open Hive
         </button>
       </div>

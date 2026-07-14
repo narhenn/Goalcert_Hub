@@ -3,7 +3,7 @@
 // Follows HiveMind.jsx patterns for state, API, and rendering.
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib.jsx'
-import API from '../../api.js'
+import API, { authHeaders } from '../../api.js'
 
 // ── Constants ────────────────────────────────────────────────────────
 const ACCENT = '#7C3AED'
@@ -18,13 +18,28 @@ const STAGE_META = [
 ]
 
 const BUILTIN_AGENTS = [
-  { id: 'finance',            name: 'Finance Manager',        initials: 'FM', color: '#16A34A', tagline: 'Financial planning & analysis',    tools: 5, builtin: true },
-  { id: 'content',            name: 'Marketing Content',      initials: 'MC', color: '#D97706', tagline: 'Content strategy & creation',      tools: 4, builtin: true },
-  { id: 'demandgen',          name: 'Marketing Demand Gen',   initials: 'DG', color: '#7C3AED', tagline: 'Pipeline & lead generation',       tools: 6, builtin: true },
-  { id: 'ceo_assistant',      name: 'CEO Assistant',          initials: 'CA', color: '#6D28D9', tagline: 'Executive briefings & synthesis',   tools: 4, builtin: true },
-  { id: 'sales_outbound',     name: 'Sales Outbound',         initials: 'SO', color: '#2563EB', tagline: 'Outbound prospecting & outreach',   tools: 5, builtin: true },
-  { id: 'sales_qual',         name: 'Sales Qualification',    initials: 'SQ', color: '#E11D48', tagline: 'Lead scoring & qualification',      tools: 5, builtin: true },
-  { id: 'personal_assistant', name: 'Personal Assistant',     initials: 'PA', color: '#0D9488', tagline: 'Scheduling & task management',      tools: 3, builtin: true },
+  { id: 'finance',            name: 'Finance Manager',        initials: 'FM', color: '#16A34A', tagline: 'Financial planning & analysis',    tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'content',            name: 'Marketing Content',      initials: 'MC', color: '#D97706', tagline: 'Content strategy & creation',      tools: 4, builtin: true, vertical: 'platform' },
+  { id: 'demandgen',          name: 'Marketing Demand Gen',   initials: 'DG', color: '#7C3AED', tagline: 'Pipeline & lead generation',       tools: 6, builtin: true, vertical: 'platform' },
+  { id: 'ceo_assistant',      name: 'CEO Assistant',          initials: 'CA', color: '#6D28D9', tagline: 'Executive briefings & synthesis',   tools: 4, builtin: true, vertical: 'platform' },
+  { id: 'sales_outbound',     name: 'Sales Outbound',         initials: 'SO', color: '#2563EB', tagline: 'Outbound prospecting & outreach',   tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'sales_qual',         name: 'Sales Qualification',    initials: 'SQ', color: '#E11D48', tagline: 'Lead scoring & qualification',      tools: 5, builtin: true, vertical: 'platform' },
+  { id: 'personal_assistant', name: 'Personal Assistant',     initials: 'PA', color: '#0D9488', tagline: 'Scheduling & task management',      tools: 3, builtin: true, vertical: 'platform' },
+  // ── Aerospace ──
+  { id: 'mro_planner',        name: 'MRO Planner',           initials: 'MP', color: '#0E9E97', tagline: 'Maintenance planning & scheduling', tools: 5, builtin: true, vertical: 'aerospace' },
+  { id: 'turbine_diag',       name: 'Turbine Diagnostics',   initials: 'TD', color: '#0E9E97', tagline: 'Engine health & fault diagnosis',   tools: 4, builtin: true, vertical: 'aerospace' },
+  // ── Railway ──
+  { id: 'fleet_ops',          name: 'Fleet Operations',      initials: 'FO', color: '#2563EB', tagline: 'Tram & train fleet management',     tools: 5, builtin: true, vertical: 'railway' },
+  { id: 'signal_monitor',     name: 'Signal Monitor',        initials: 'SM', color: '#2563EB', tagline: 'Signalling & track monitoring',     tools: 4, builtin: true, vertical: 'railway' },
+  // ── EV ──
+  { id: 'battery_health',     name: 'Battery Health',        initials: 'BH', color: '#16A34A', tagline: 'Cell-level SoH & thermal risk',     tools: 5, builtin: true, vertical: 'ev' },
+  { id: 'grid_balancer',      name: 'Grid Balancer',         initials: 'GB', color: '#16A34A', tagline: 'V2G scheduling & load balancing',   tools: 4, builtin: true, vertical: 'ev' },
+  // ── Hospital ──
+  { id: 'patient_flow',       name: 'Patient Flow',          initials: 'PF', color: '#E11D48', tagline: 'Bed management & ED wait times',    tools: 5, builtin: true, vertical: 'hospital' },
+  { id: 'facility_safety',    name: 'Facility Safety',       initials: 'FS', color: '#E11D48', tagline: 'OR pressure & cold chain compliance', tools: 4, builtin: true, vertical: 'hospital' },
+  // ── Defence ──
+  { id: 'force_readiness',    name: 'Force Readiness',       initials: 'FR', color: '#6D28D9', tagline: 'Readiness scoring & threat watch',  tools: 5, builtin: true, vertical: 'defence' },
+  { id: 'naval_monitor',      name: 'Naval Monitor',         initials: 'NM', color: '#6D28D9', tagline: 'Ship stability & propulsion health', tools: 4, builtin: true, vertical: 'defence' },
 ]
 
 const PERSONA_OPTIONS = ['Consultative', 'Formal', 'Friendly', 'Technical', 'Direct', 'Warm']
@@ -45,7 +60,7 @@ const CHANNEL_OPTIONS = [
 ]
 
 // ── Main component ───────────────────────────────────────────────────
-export default function AgentBuilder({ onNav }) {
+export default function AgentBuilder({ onNav, vertical }) {
   const [view, setView] = useState('dashboard')
   const [agents, setAgents] = useState([])
   const [stage, setStage] = useState(0)
@@ -72,13 +87,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadAgents = useCallback(async () => {
     try {
-      const res = await fetch('/api/agentbuilder/agents', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setAgents(data.agents || data || [])
-      }
+      const data = await API.agentbuilder.agents()
+      setAgents(data.agents || data || [])
     } catch {
       // API may not exist yet, use empty list
     }
@@ -87,10 +97,11 @@ export default function AgentBuilder({ onNav }) {
   // ── Stats ────────────────────────────────────────────────────────
   const customAgents = agents.filter(a => !a.builtin)
   const liveAgents = agents.filter(a => a.status === 'live')
-  const allAgents = [...BUILTIN_AGENTS, ...customAgents]
+  const filteredBuiltin = BUILTIN_AGENTS.filter(a => a.vertical === 'platform' || a.vertical === vertical)
+  const allAgents = [...filteredBuiltin, ...customAgents]
   const stats = {
     total: allAgents.length,
-    builtin: BUILTIN_AGENTS.length,
+    builtin: filteredBuiltin.length,
     custom: customAgents.length,
     live: liveAgents.length,
   }
@@ -114,13 +125,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadTemplates = async () => {
     try {
-      const res = await fetch('/api/agentbuilder/templates', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setTemplates(data.templates || data || [])
-      }
+      const data = await API.agentbuilder.templates()
+      setTemplates(data.templates || data || [])
     } catch {
       // fallback templates
       setTemplates([
@@ -135,13 +141,8 @@ export default function AgentBuilder({ onNav }) {
 
   const loadTools = async () => {
     try {
-      const res = await fetch('/api/agentbuilder/tools', {
-        headers: { 'Content-Type': 'application/json' },
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setTools(data.tools || data || {})
-      }
+      const data = await API.agentbuilder.tools()
+      setTools(data.tools || data || {})
     } catch {
       // fallback tool clusters
       setTools({
@@ -185,7 +186,7 @@ export default function AgentBuilder({ onNav }) {
     try {
       await fetch(`/api/agentbuilder/agents/${agentId}/stage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           stage,
           agent,
@@ -204,15 +205,8 @@ export default function AgentBuilder({ onNav }) {
     // On stage 0, create the agent if not yet created
     if (stage === 0 && !agentId) {
       try {
-        const res = await fetch('/api/agentbuilder/agents', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ method, ...agent }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setAgentId(data.id || data.agent_id || null)
-        }
+        const data = await API.agentbuilder.create({ method, ...agent })
+        setAgentId(data.id || data.agent_id || null)
       } catch {
         // proceed with null id, local state is fine
       }
@@ -235,7 +229,7 @@ export default function AgentBuilder({ onNav }) {
     try {
       await fetch(`/api/agentbuilder/agents/${agentId || 'new'}/deploy`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           agent,
           tools: [...selectedTools],
@@ -270,9 +264,11 @@ export default function AgentBuilder({ onNav }) {
       {view === 'dashboard' ? (
         <Dashboard
           stats={stats}
+          builtinAgents={filteredBuiltin}
           customAgents={customAgents}
           onCreateAgent={startBuilder}
           onNav={onNav}
+          vertical={vertical}
         />
       ) : (
         <Builder
@@ -312,7 +308,11 @@ export default function AgentBuilder({ onNav }) {
 // ══════════════════════════════════════════════════════════════════════
 // VIEW 1: AGENT DASHBOARD
 // ══════════════════════════════════════════════════════════════════════
-function Dashboard({ stats, customAgents, onCreateAgent, onNav }) {
+function Dashboard({ stats, builtinAgents, customAgents, onCreateAgent, onNav, vertical }) {
+  const platformAgents = builtinAgents.filter(a => a.vertical === 'platform')
+  const verticalAgents = builtinAgents.filter(a => a.vertical !== 'platform')
+  const verticalLabel = { aerospace: 'Aerospace', railway: 'Railway', ev: 'EV', hospital: 'Hospital', defence: 'Defence' }[vertical] || 'Vertical'
+
   return (
     <>
       {/* Header */}
@@ -339,13 +339,25 @@ function Dashboard({ stats, customAgents, onCreateAgent, onNav }) {
         <StatCard label="Live" value={stats.live} icon="ti-broadcast" color="var(--accent-green)" live />
       </div>
 
-      {/* GoalCert Team */}
-      <SectionLabel label="GoalCert Team" count={BUILTIN_AGENTS.length} icon="ti-crown" />
+      {/* Platform agents (cross-vertical) */}
+      <SectionLabel label="Platform Agents" count={platformAgents.length} icon="ti-crown" />
       <div className="grid-3 section-gap">
-        {BUILTIN_AGENTS.map(a => (
+        {platformAgents.map(a => (
           <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
         ))}
       </div>
+
+      {/* Vertical-specific agents */}
+      {verticalAgents.length > 0 && (
+        <>
+          <SectionLabel label={`${verticalLabel} Agents`} count={verticalAgents.length} icon="ti-hexagon" />
+          <div className="grid-3 section-gap">
+            {verticalAgents.map(a => (
+              <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Your Agents */}
       <SectionLabel label="Your Agents" count={customAgents.length} icon="ti-user-plus" />
@@ -722,7 +734,7 @@ function StageDefine({ agent, setAgent, setLoading }) {
     try {
       const res = await fetch('/api/agentbuilder/generate-prompt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           name: agent.name,
           purpose: agent.purpose,
@@ -846,6 +858,7 @@ function StageKnowledge({ files, setFiles, agentId }) {
 
         await fetch('/api/agentbuilder/knowledge/upload', {
           method: 'POST',
+          headers: { ...authHeaders() },
           body: formData,
         })
       } catch {
@@ -1078,7 +1091,7 @@ function StageGuardrails({ guardrails, setGuardrails, testMessages, setTestMessa
     try {
       const res = await fetch('/api/agentbuilder/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           agent_id: agentId,
           message: msg,
@@ -1343,7 +1356,7 @@ function StageDeploy({ channels, setChannels, deploying, deployed, agent, onDepl
         <div style={{
           width: 64, height: 64, borderRadius: '50%', margin: '0 auto 16px',
           background: 'rgba(22,163,74,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, color: '#16A34A',
+          fontSize: 28, color: 'var(--accent-green)',
         }}>
           <Icon n="ti-check" />
         </div>

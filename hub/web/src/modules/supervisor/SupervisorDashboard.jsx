@@ -9,7 +9,8 @@ import { useAudit } from '../../hub/audit.jsx'
 import { useLoop } from '../../hub/loopState.jsx'
 import ReadinessGauge from '../frontline/ReadinessGauge.jsx'
 
-// -- mocked team data (12 operators) --
+// -- Demo data: no team roster API exists yet. Replace with a real fetch when
+// the backend ships a /api/supervisor/team or /api/admin/team endpoint. --
 const MOCK_TEAM = [
   { id: 'T-001', name: 'Alice Tan', role: 'Lead Technician', score: 92, status: 'on_asset', procedure: 'Routine Inspection', flowStep: 6, certDays: 12 },
   { id: 'T-002', name: 'Bob Lim', role: 'Operator', score: 61, status: 'in_training', procedure: 'Filter Replacement', flowStep: 3, certDays: 58 },
@@ -26,7 +27,7 @@ const MOCK_TEAM = [
 ]
 
 const STATUS_LABEL = { on_asset: 'On Asset', in_training: 'Training', cleared: 'Cleared', pending: 'Pending' }
-const STATUS_COLOR = { on_asset: '#16a34a', in_training: '#2563eb', cleared: '#059669', pending: '#d97706' }
+const STATUS_COLOR = { on_asset: 'var(--accent-green)', in_training: '#2563eb', cleared: '#059669', pending: 'var(--accent-amber)' }
 
 export default function SupervisorDashboard() {
   const { active } = useTwin()
@@ -77,7 +78,12 @@ export default function SupervisorDashboard() {
     <div className="panel">
       <div className="panel-header">
         <div>
-          <div className="panel-title">Team Readiness</div>
+          <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            Team Readiness
+            <span className="pill" style={{ background: 'var(--accent-amber)', color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '.04em' }}>
+              Demo Data
+            </span>
+          </div>
           <div className="panel-subtitle">Morning shift — {MOCK_TEAM.length} operators — {meta.label}</div>
         </div>
       </div>
@@ -85,8 +91,8 @@ export default function SupervisorDashboard() {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Avg Readiness', value: `${avgScore}%`, color: avgScore >= 75 ? '#16a34a' : '#d97706' },
-          { label: 'On Asset', value: onAsset, color: '#16a34a' },
+          { label: 'Avg Readiness', value: `${avgScore}%`, color: avgScore >= 75 ? 'var(--accent-green)' : 'var(--accent-amber)' },
+          { label: 'On Asset', value: onAsset, color: 'var(--accent-green)' },
           { label: 'In Training', value: training, color: '#2563eb' },
           { label: 'Cleared', value: cleared, color: '#059669' },
         ].map(k => (
@@ -104,7 +110,7 @@ export default function SupervisorDashboard() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
           {MOCK_TEAM.map(op => {
-            const scoreColor = op.score >= 80 ? '#16a34a' : op.score >= 60 ? '#d97706' : '#e11d48'
+            const scoreColor = op.score >= 80 ? 'var(--accent-green)' : op.score >= 60 ? 'var(--accent-amber)' : 'var(--accent-red)'
             return (
               <div key={op.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
                 borderRadius: 8, background: `${scoreColor}08`, border: `1px solid ${scoreColor}20` }}>

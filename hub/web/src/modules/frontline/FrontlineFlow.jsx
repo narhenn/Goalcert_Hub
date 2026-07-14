@@ -403,7 +403,7 @@ function StepExpert({ onNext }) {
         </button>
       </div>
       {called && (
-        <div style={{ marginTop: 16, padding: 12, background: '#f5f3ff', borderRadius: 8, fontSize: 12 }}>
+        <div style={{ marginTop: 16, padding: 12, background: 'var(--brand-softer, #f5f3ff)', borderRadius: 8, fontSize: 12 }}>
           <b>Expert session connected.</b> Session recorded, tagged, and transcribed for training.
           <br />
           <button className="btn" style={{ background: 'var(--brand)', color: '#fff', padding: '8px 16px',

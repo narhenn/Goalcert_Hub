@@ -48,10 +48,21 @@ export const BRIEF_PRESETS = [
 
 // ── Stub deliverables (production-grade fallbacks) ─────────────────────
 
+// vertical-aware case study & reference data for stub deliverables
+const VERTICAL_REF = {
+  aerospace:  { casestudy: 'Collins Aerospace', deal: 'Collins Aerospace (expand)', sector: 'aerospace MRO' },
+  railway:    { casestudy: 'SMRT Corporation', deal: 'SMRT Corporation (expand)', sector: 'rail transit' },
+  ev:         { casestudy: 'Charge+', deal: 'Charge+ Network (expand)', sector: 'EV charging' },
+  hospital:   { casestudy: 'SingHealth', deal: 'SingHealth (expand)', sector: 'healthcare' },
+  defence:    { casestudy: 'ST Engineering', deal: 'ST Engineering (expand)', sector: 'defence' },
+}
+function verticalRef(context) { return VERTICAL_REF[context.vertical] || VERTICAL_REF.aerospace }
+
 function stubFor(persona, brief, context) {
   const ts = new Date().toISOString().slice(0, 10)
   const company = context.facility || 'GoalCert'
   const industry = context.domain || 'enterprise technology'
+  const vRef = verticalRef(context)
 
   switch (persona.role) {
     case 'ceo':
@@ -141,14 +152,14 @@ function stubFor(persona, brief, context) {
           `**Messaging Framework:**\n` +
           `- Hook: "The only platform that combines digital twin + AI agents + training + drones"\n` +
           `- Pain: "Your operators learn from mistakes. Ours learn from simulations."\n` +
-          `- Proof: Collins Aerospace case study (3 products integrated, 51 AI agents)\n` +
+          `- Proof: ${vRef.casestudy} case study (3 products integrated, 51 AI agents)\n` +
           `- CTA: "Book a 30-minute platform walkthrough"\n\n` +
           `**Content Calendar (4 weeks):**\n` +
           `| Week | Content | Channel | KPI |\n` +
           `|---|---|---|---|\n` +
           `| W1 | Launch blog + LinkedIn carousel | Organic + Paid | 500 impressions |\n` +
           `| W2 | 45-min webinar "Future of Industrial AI" | Webinar + Email | 80 registrations |\n` +
-          `| W3 | Case study: Collins Aerospace | Email + LinkedIn | 25 downloads |\n` +
+          `| W3 | Case study: ${vRef.casestudy} | Email + LinkedIn | 25 downloads |\n` +
           `| W4 | Direct outreach (top 50 targets) | Email + LinkedIn DM | 10 meetings |\n\n` +
           `**Budget:** $12K total · **Expected Pipeline:** $480K`,
       }
@@ -197,10 +208,10 @@ function stubFor(persona, brief, context) {
           `1. ST Engineering — $180K — Proposal stage — 65% — Champion: VP Eng\n` +
           `2. SingHealth — $120K — Evaluation — 55% — Champion: CIO\n` +
           `3. LTA Singapore — $250K — Discovery — 30% — No champion yet (risk)\n` +
-          `4. Collins Aerospace (expand) — $95K — Negotiation — 80%\n` +
+          `4. ${vRef.deal} — $95K — Negotiation — 80%\n` +
           `5. Changi Airport Group — $175K — Discovery — 25%\n\n` +
           `**At-Risk Deals:** LTA (no champion), Changi (competitor shortlisted)\n` +
-          `**Action This Week:** Get exec sponsor meeting for LTA, send Collins case study to Changi`,
+          `**Action This Week:** Get exec sponsor meeting for LTA, send ${vRef.casestudy} case study to Changi`,
       }
     case 'sales_client':
       return {
@@ -225,7 +236,7 @@ function stubFor(persona, brief, context) {
           `| Professional | $96K | Twin + AI + 3 verticals |\n` +
           `| Enterprise | $180K | Full suite + DroneForce + dedicated support |\n\n` +
           `**Implementation:** 4 weeks to first live twin. Full deployment in 12 weeks.\n\n` +
-          `**ROI Projection:** 3.2x return in 18 months based on Collins Aerospace benchmark.\n\n` +
+          `**ROI Projection:** 3.2x return in 18 months based on ${vRef.casestudy} benchmark.\n\n` +
           `**Next Steps:**\n` +
           `1. 30-minute technical walkthrough\n` +
           `2. 2-week pilot on your facility\n` +

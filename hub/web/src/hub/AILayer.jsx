@@ -11,22 +11,24 @@ import { useAudit } from './audit.jsx'
 import { stubNarration, stubChatReply, stubProcedure } from '../aiStubs.js'
 import { AGENT_ACTIONS, runAgent } from '../modules/agentic/actions.js'
 import MiniMarkdown from './MiniMarkdown.jsx'
-import API from '../api.js'
+import API, { authHeaders } from '../api.js'
 
 const ACCENT = '#7A5CF0'
 
 // try the orchestrator narration endpoint; fall back to local stub
 async function fetchNarration(ctx) {
+  if (!ctx.tenant) return { text: stubNarration(ctx), live: false }   // sim twin — no live reasoning
   try {
-    const r = await fetch('/api/agents/narrate', {
+    const r = await fetch('/api/agents/run', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(ctx),
-      signal: AbortSignal.timeout(4000),
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ capability: 'narrate', tenant: ctx.tenant, context: ctx }),
+      signal: AbortSignal.timeout(8000),
     })
     if (!r.ok) throw new Error(`narrate: ${r.status}`)
     const d = await r.json()
-    return { text: d.text || d.narration || JSON.stringify(d), live: true }
+    const t = d?.result?.text || d?.result || d.text || d.narration
+    return { text: typeof t === 'string' ? t : stubNarration(ctx), live: true }
   } catch {
     return { text: stubNarration(ctx), live: false }
   }
@@ -34,16 +36,18 @@ async function fetchNarration(ctx) {
 
 // try the orchestrator chat endpoint; fall back to local stub
 async function fetchChat(message, ctx) {
+  if (!ctx.tenant) return { text: stubChatReply(message, ctx), live: false }
   try {
     const r = await fetch('/api/agents/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, context: ctx }),
-      signal: AbortSignal.timeout(6000),
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ capability: 'dashboard-chat', message, tenant: ctx.tenant, context: ctx }),
+      signal: AbortSignal.timeout(15000),
     })
     if (!r.ok) throw new Error(`chat: ${r.status}`)
     const d = await r.json()
-    return { text: d.reply || d.text || JSON.stringify(d), live: true }
+    const t = d?.result?.text || d?.reply || d.text
+    return { text: typeof t === 'string' ? t : stubChatReply(message, ctx), live: true }
   } catch {
     return { text: stubChatReply(message, ctx), live: false }
   }
@@ -64,7 +68,7 @@ export function CoPilotDock() {
     if (!active) return
     const tick = async () => {
       const tw = twinRef.current; if (!tw?.latest) return
-      const ctx = { domain: active.domain, machineName: active.name, latest: tw.latest, findings: tw.findings || [], health: tw.health }
+      const ctx = { tenant: active.tenant, domain: active.domain, machineName: active.name, latest: tw.latest, findings: tw.findings || [], health: tw.health }
       const { text } = await fetchNarration(ctx)
       setMsgs(prev => [...prev, { role: 'auto', text, ts: new Date().toLocaleTimeString() }].slice(-16))
     }
@@ -103,7 +107,7 @@ export function CoPilotDock() {
       return
     }
 
-    const ctx = { domain: active.domain, machineName: active.name, latest: twin?.latest || {}, findings: twin?.findings || [], health: twin?.health }
+    const ctx = { tenant: active.tenant, domain: active.domain, machineName: active.name, latest: twin?.latest || {}, findings: twin?.findings || [], health: twin?.health }
     const { text, live } = await fetchChat(m, ctx)
     setChatLive(live)
     setMsgs(prev => [...prev, { role: 'assistant', text, ts: new Date().toLocaleTimeString() }])
@@ -167,7 +171,7 @@ export function AIDrawer({ open, onClose, onPickTwin, onRepair }) {
   const run = async (a) => {
     if (!active) return
     setBusy(a.id); setResult(null)
-    const text = await runAgent(a.id, { domain: active.domain, machineName: active.name, twin })
+    const text = await runAgent(a.id, { domain: active.domain, machineName: active.name, twin, tenant: active.tenant })
     setResult({ label: a.label, text })
     log('agentic', a.id, `AI · ${a.label}`, `on ${active.name}`)
     setBusy(null)

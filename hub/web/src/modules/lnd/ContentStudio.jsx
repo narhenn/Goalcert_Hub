@@ -29,7 +29,12 @@ const SAMPLE_SOP = `Guide Roller Inspection & Replace (EDM-03)
 5. Re-thread the wire, restore covers, and run the alignment check cycle.
 6. Log measured values and confirm dielectric flow is nominal.`
 
-// ── the SIM drafter — deterministic, SOP-derived (the lineage is real) ──
+// ── Local SOP parser (NOT an AI call) ──
+// This is a deterministic regex splitter that derives the four asset types
+// from the SOP text structure. The "Drafting..." animation is a staged
+// reveal for UX — no network request is made here. When the AUTOMIND
+// drafting agent ships, the live path in startDraft() will call it;
+// this local parser stays as the SIM/fallback path.
 function parseSteps(sop) {
   return sop.split('\n')
     .map(l => l.replace(/^\s*(\d+[.)]|[-*•])\s*/, '').trim())

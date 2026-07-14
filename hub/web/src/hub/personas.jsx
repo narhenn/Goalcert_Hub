@@ -34,7 +34,7 @@ export const PERSONAS = {
     done: 'Cleared, competent, supported',
     stages: ['assess', 'train', 'simulate', 'deploy', 'assist', 'observe', 'improve'],
     platforms: ['twin', 'scenario', 'agentic'],
-    nav: ['assigned', 'train', 'dashboard', 'loop'],
+    nav: ['assigned', 'train', 'dashboard', 'networkmap', 'bedboard', 'loop'],
     defaultRoute: 'assigned',
   },
   supervisor: {
@@ -45,7 +45,7 @@ export const PERSONAS = {
     done: 'Right person on the right task, every shift',
     stages: ['assess', 'deploy', 'assist', 'improve'],
     platforms: ['twin', 'agentic'],
-    nav: ['supervisor', 'dashboard', 'predict', 'loop', 'audit'],
+    nav: ['supervisor', 'dashboard', 'predict', 'networkmap', 'chargingmap', 'batteryheatmap', 'bedboard', 'medgas', 'tacticalmap', 'loop', 'audit'],
     defaultRoute: 'supervisor',
   },
   lnd: {
@@ -78,7 +78,7 @@ export const PERSONAS = {
     done: 'A number to run the business on',
     stages: ['observe', 'improve'],
     platforms: ['twin', 'agentic', 'hivemind', 'agentbuilder'],
-    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'hivemind', 'builder', 'teamchat', 'loop'],
+    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'networkmap', 'chargingmap', 'batteryheatmap', 'bedboard', 'medgas', 'tacticalmap', 'hivemind', 'builder', 'teamchat', 'loop'],
     defaultRoute: 'ops',
   },
   admin: {
@@ -89,7 +89,7 @@ export const PERSONAS = {
     done: 'Right people, right roles, platform trusted',
     stages: [],
     platforms: ['twin', 'scenario', 'agentic', 'agentbuilder'],
-    nav: ['admin', 'users', 'build', 'twins', 'builder', 'teamchat', 'audit', 'loop'],
+    nav: ['admin', 'users', 'build', 'twins', 'dashboard', 'networkmap', 'chargingmap', 'batteryheatmap', 'bedboard', 'medgas', 'tacticalmap', 'builder', 'teamchat', 'audit', 'loop'],
     defaultRoute: 'admin',
   },
   superadmin: {

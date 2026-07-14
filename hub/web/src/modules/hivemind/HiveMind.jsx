@@ -4,6 +4,7 @@
 // Each agent produces a deliverable card, not a chat bubble.
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib.jsx'
+import { useVertical } from '../../hub/verticalState.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import {
   PERSONAS, PERSONA_MAP, LEAD_AGENT_ID,
@@ -49,6 +50,7 @@ const CONNECTIONS = [
 
 export default function HiveMind() {
   const { active, twin } = useTwin()
+  const { vertical } = useVertical()
 
   // 4-step flow state
   const [step, setStep] = useState('onboard')
@@ -104,6 +106,7 @@ export default function HiveMind() {
       machine: facilityName || 'Industrial Asset',
       facility: facilityName || 'GoalCert',
       domain: domain || 'enterprise technology',
+      vertical: vertical || 'aerospace',
       provider: provider || 'claude',
       description: briefText || selectedPreset?.description || '',
       diagnostics: twin || {},
@@ -284,7 +287,7 @@ function HiveHeader({ step, setStep, running }) {
 
 // ── Step 1: Onboard ───────────────────────────────────────────────────
 const DOMAIN_OPTIONS = [
-  { value: 'mro', label: 'MRO / Aerospace', icon: 'ti-propeller' },
+  { value: 'mro', label: 'Aerospace', icon: 'ti-propeller' },
   { value: 'railway', label: 'Railway / Rail', icon: 'ti-train' },
   { value: 'ev', label: 'EV / Battery', icon: 'ti-bolt' },
   { value: 'hospital', label: 'Hospital / Medical', icon: 'ti-heart-rate-monitor' },
@@ -353,7 +356,7 @@ function OnboardStep({ facilityName, setFacilityName, domain, setDomain, active,
             className="hm-input"
             value={facilityName}
             onChange={e => { setFacilityName(e.target.value); setBrandSaved(false) }}
-            placeholder="e.g. GoalCert, Collins Aerospace, SMRT"
+            placeholder="e.g. GoalCert, SMRT, SingHealth"
           />
         </div>
 
@@ -378,7 +381,7 @@ function OnboardStep({ facilityName, setFacilityName, domain, setDomain, active,
             className="hm-textarea"
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="e.g. GoalCert is a multi-vertical digital twin platform combining physics-based twins, agentic AI, simulation training, and drone operations. We serve aerospace MRO, railway, EV, hospital, and defence sectors."
+            placeholder="e.g. GoalCert is a multi-vertical digital twin platform combining physics-based twins, agentic AI, simulation training, and drone operations. We serve aerospace, railway, EV, hospital, and defence sectors."
             rows={3}
             style={{ fontSize: 12 }}
           />
