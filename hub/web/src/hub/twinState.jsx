@@ -7,7 +7,7 @@
 //              'live' — calls the NextXR backend; falls back to stub if unreachable.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { simTwin, domainMeta } from '../lib.jsx'
-import API from '../api.js'
+import API, { twinTemplateFor } from '../api.js'
 
 const TwinCtx = createContext(null)
 
@@ -72,18 +72,28 @@ export function TwinProvider({ children }) {
     return () => liveTimer.current && clearInterval(liveTimer.current)
   }, [active, running, serviceMode])
 
-  // openTwin: in live mode, create a real tenant via NextXR; stub on failure
+  // openTwin: in live mode, REUSE an existing twin of this domain if one is
+  // already on the service (like the NextXR platform's own library does), else
+  // create a fresh tenant. Stub on failure.
   const openTwin = useCallback(async (domain, name) => {
     setSimFault(null); setRunning(true)
     const label = name || domainMeta(domain).label
     if (serviceMode === 'live') {
       try {
-        const res = await API.twin.create(label, domain)
-        // The twin service returns { status, twin: { tenant_id } }; some builds
-        // also mirror it top-level. Accept every shape so the live tenant (and
-        // therefore the 3-D scene + live telemetry) always attaches.
-        const tenant = res.twin?.tenant_id || res.tenant_id || res.id || res.tenant
-        setActive({ domain, name: label, tenant })
+        const svcDomain = twinTemplateFor(domain)
+        let tenant = null, liveName = label
+        try {
+          const existing = (await API.twin.list())?.twins?.find(t => t.domain === svcDomain)
+          if (existing) { tenant = existing.tenant_id; liveName = existing.name || label }
+        } catch { /* list unavailable — fall through to create */ }
+        if (!tenant) {
+          const res = await API.twin.create(label, domain)
+          // The twin service returns { status, twin: { tenant_id } }; some builds
+          // also mirror it top-level. Accept every shape so the live tenant (and
+          // therefore the 3-D scene + live telemetry) always attaches.
+          tenant = res.twin?.tenant_id || res.tenant_id || res.id || res.tenant
+        }
+        setActive({ domain, name: liveName, tenant })
         activeTenantRef.current = tenant
         // kick off feed on the backend
         API.twin.feedStart(tenant).catch(() => {})

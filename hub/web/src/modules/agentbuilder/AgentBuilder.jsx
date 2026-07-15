@@ -343,7 +343,7 @@ function Dashboard({ stats, builtinAgents, customAgents, onCreateAgent, onNav, v
       <SectionLabel label="Platform Agents" count={platformAgents.length} icon="ti-crown" />
       <div className="grid-3 section-gap">
         {platformAgents.map(a => (
-          <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
+          <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agent: a })} />
         ))}
       </div>
 
@@ -353,7 +353,7 @@ function Dashboard({ stats, builtinAgents, customAgents, onCreateAgent, onNav, v
           <SectionLabel label={`${verticalLabel} Agents`} count={verticalAgents.length} icon="ti-hexagon" />
           <div className="grid-3 section-gap">
             {verticalAgents.map(a => (
-              <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
+              <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agent: a })} />
             ))}
           </div>
         </>
@@ -364,7 +364,7 @@ function Dashboard({ stats, builtinAgents, customAgents, onCreateAgent, onNav, v
       {customAgents.length > 0 ? (
         <div className="grid-3">
           {customAgents.map(a => (
-            <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agentId: a.id })} />
+            <AgentCard key={a.id} agent={a} onClick={() => onNav && onNav('chat', { agent: a })} />
           ))}
         </div>
       ) : (
@@ -1376,7 +1376,7 @@ function StageDeploy({ channels, setChannels, deploying, deployed, agent, onDepl
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button className="btn btn-primary" onClick={() => onNav && onNav('chat', { agentId: agent.name })} style={{ gap: 6 }}>
+          <button className="btn btn-primary" onClick={() => onNav && onNav('teamchat')} style={{ gap: 6 }}>
             <Icon n="ti-message-circle" /> Open Team Chat
           </button>
           <button className="btn" onClick={onExit} style={{ gap: 6 }}>

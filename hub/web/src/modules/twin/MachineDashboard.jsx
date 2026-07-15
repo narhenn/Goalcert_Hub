@@ -14,6 +14,15 @@ import { Icon, HealthRing, Sparkline } from '../../lib.jsx'
 import API from '../../api.js'
 import { usePolling, useApi } from './scene/usePoll.js'
 import Scene3D from './scene/Scene3D.jsx'
+import RailwayNetworkMap from './scene/views/RailwayNetworkMap.jsx'
+import RailwayDepotBoard from './scene/views/RailwayDepotBoard.jsx'
+import HospitalCampusViews from './scene/views/HospitalCampusViews.jsx'
+import EVNetworkViews from './scene/views/EVNetworkViews.jsx'
+import EVBatteryHeatmap from './scene/views/EVBatteryHeatmap.jsx'
+import DefenceBaseViews from './scene/views/DefenceBaseViews.jsx'
+import DefenceDamageControl from './scene/views/DefenceDamageControl.jsx'
+import TurbineModel from './scene/views/TurbineModel.jsx'
+import GlbViewer from './scene/views/GlbViewer.jsx'
 import {
   domainMeta, statusColor, healthBand, riskFromHealth, hColor,
   stubNarration, stubReply, isNetworkDomain, localName,
@@ -46,6 +55,10 @@ export default function MachineDashboard({ tenant, domain, name, onNav }) {
   const { data: net } = usePolling(() => API.twin.network(tenant).catch(() => null), 2500, [tenant],
     { skip: !tenant || !isNetworkDomain(domain) })
   const { data: domains } = useApi(() => API.twin.machineDomains(), [])
+  // If this twin was built from a photo, its reconstructed GLB is the model to
+  // show (not the stock/procedural one).
+  const { data: sceneRes } = useApi(() => API.twin.scene(tenant).catch(() => null), [tenant])
+  const reconUrl = sceneRes?.scene_result?.model_url
 
   // make sure the physics ticker is running when we land on the twin
   useEffect(() => {
@@ -128,13 +141,53 @@ export default function MachineDashboard({ tenant, domain, name, onNav }) {
         </div>
       </div>
 
-      {/* 3-D machine model (procedural, from the twin's live signals) */}
-      <Card title={<><i className={`ti ${meta.icon}`} /> {isNetworkDomain(domain) ? 'Live Network' : '3-D Twin'}</>}
-        action={<span className="pill pill-green">● live</span>} className="section-gap">
-        {domain === 'edm-machine'
-          ? <Scene3D domain="edm-machine" machine={name || meta.label} live={latest} height={360} />
-          : <MachineHero meta={meta} name={name || meta.label} health={health} latest={latest} />}
-      </Card>
+      {/* Per-domain live surface — identical layout to the NextXR platform:
+          hospital gets the five clinical views, EV the charging/grid views,
+          battery pack the cell heatmap, defence the tactical/mission views,
+          warship damage control, metro the live network map; machine twins get
+          their real 3-D model (reconstructed GLB > stock/procedural model). */}
+      {domain === 'hospital-campus' ? (
+        <div className="section-gap"><HospitalCampusViews net={net} /></div>
+      ) : domain === 'ev-charging-network' ? (
+        <div className="section-gap"><EVNetworkViews net={net} /></div>
+      ) : domain === 'ev-battery-pack' ? (
+        <Card title={<><i className="ti ti-grid-dots" /> Battery Cell Heatmap</>}
+          action={<span className="pill pill-green">● live</span>} className="section-gap">
+          {net ? <EVBatteryHeatmap net={net} /> : <Empty label="Loading cells…" icon="ti-loader" />}
+        </Card>
+      ) : domain === 'defence-base' ? (
+        <div className="section-gap"><DefenceBaseViews net={net} /></div>
+      ) : domain === 'defence-warship' ? (
+        <Card title={<><i className="ti ti-ship" /> Damage Control</>}
+          action={net?.ship?.capsize_risk ? <span className="pill pill-red">capsize risk</span> : <span className="pill pill-green">● live</span>}
+          className="section-gap">
+          {net ? <DefenceDamageControl net={net} /> : <Empty label="Loading…" icon="ti-loader" />}
+        </Card>
+      ) : (
+        <Card title={<><i className={`ti ${meta.icon}`} /> {domain === 'railway-metro' ? 'Live Metro Network' : '3-D Twin'}</>}
+          action={isNetworkDomain(domain) && net?.blocked?.length
+            ? <span className="pill pill-red">{net.blocked.length} {domain === 'railway-metro' ? 'line' : 'route'} blocked</span>
+            : <span className="pill pill-green">● live</span>}
+          className="section-gap">
+          {domain === 'railway-metro'
+            ? (net ? <RailwayNetworkMap net={net} /> : <Empty label="Loading network…" icon="ti-loader" />)
+            : reconUrl
+              ? <GlbViewer url={reconUrl} height={340} label="Reconstructed model · live twin" />
+              : domain === 'turbine-engine'
+                ? <TurbineModel latest={latest} health={health} height={340} />
+                : domain === 'edm-machine'
+                  ? <Scene3D domain="edm-machine" machine={name || meta.label} live={latest} height={360} />
+                  : <MachineHero meta={meta} name={name || meta.label} health={health} latest={latest} />}
+        </Card>
+      )}
+
+      {/* Depot board (metro only) */}
+      {domain === 'railway-metro' && net?.depots && (
+        <Card title={<><i className="ti ti-building-warehouse" /> Depot Board</>}
+          action={<span className="pill pill-surface">predicted availability</span>} className="section-gap">
+          <RailwayDepotBoard depots={net.depots} />
+        </Card>
+      )}
 
       {/* AI co-pilot */}
       <CoPilot tenant={tenant} state={{ ...state, name: name || meta.label }} className="section-gap" />

@@ -20,7 +20,7 @@ const FALLBACK_COLORS = [
   '#06B6D4', '#EC4899', '#EF4444', '#6366F1',
 ]
 
-function agentColor(agentId) {
+export function agentColor(agentId) {
   if (AGENT_COLORS[agentId]) return AGENT_COLORS[agentId]
   // deterministic fallback
   let hash = 0
@@ -28,7 +28,7 @@ function agentColor(agentId) {
   return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length]
 }
 
-function agentInitials(name) {
+export function agentInitials(name) {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/)
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
@@ -36,7 +36,7 @@ function agentInitials(name) {
 }
 
 // ── Minimal markdown renderer ────────────────────────────────────────
-function renderMarkdown(text) {
+export function renderMarkdown(text) {
   if (!text) return ''
   const lines = text.split('\n')
   const html = []

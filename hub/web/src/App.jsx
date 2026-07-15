@@ -27,12 +27,6 @@ import MachineDashboard from './modules/twin/MachineDashboard.jsx'
 import BuildTwin from './modules/twin/BuildTwin.jsx'
 import { isMachineDomain, serviceDomain } from './modules/twin/scene/machine.js'
 import Prediction from './modules/twin/Prediction.jsx'
-import NetworkMap from './modules/twin/NetworkMap.jsx'
-import ChargingMap from './modules/twin/ChargingMap.jsx'
-import BatteryHeatmap from './modules/twin/BatteryHeatmap.jsx'
-import BedBoard from './modules/twin/BedBoard.jsx'
-import MedGasSchematic from './modules/twin/MedGasSchematic.jsx'
-import TacticalMap from './modules/twin/TacticalMap.jsx'
 // Scenario.jsx (twin fault injection) is no longer routed from here — it is the
 // "Twin Faults" tab inside SimulationWorkspace, which now owns the Scenario & Faults page.
 import Trainer from './modules/scenario/Trainer.jsx'
@@ -51,6 +45,7 @@ import HiveMind from './modules/hivemind/HiveMind.jsx'
 import './modules/hivemind/hivemind.css'
 import AgentBuilder from './modules/agentbuilder/AgentBuilder.jsx'
 import TeamChat from './modules/agentbuilder/TeamChat.jsx'
+import AgentChat from './modules/agentbuilder/AgentChat.jsx'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
@@ -158,9 +153,10 @@ function Shell() {
   const ent = useEntitlements()
   const { user, logout } = useAuth()
   const { persona, isPreview, exitPreview, allows } = usePersona()
-  const { active, twin, openTwin } = useTwin()
+  const { active, twin, openTwin, openExisting } = useTwin()
   const frontline = useFrontline()
   const [route, setRoute] = useState(() => persona.defaultRoute)
+  const [routeParams, setRouteParams] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [aiDrawer, setAiDrawer] = useState(false)
   const [takeover, setTakeover] = useState(false)
@@ -178,7 +174,7 @@ function Shell() {
   }, [persona.id]) // eslint-disable-line
 
   useEffect(() => {
-    if (!navIds.includes(route) && route !== 'flow' && route !== 'overview')
+    if (!navIds.includes(route) && route !== 'flow' && route !== 'overview' && route !== 'chat')
       setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
   }, [ent.enabled, nav.length]) // eslint-disable-line
 
@@ -192,7 +188,7 @@ function Shell() {
     const t = document.documentElement.getAttribute('data-theme') === 'dark' ? '' : 'dark'
     document.documentElement.setAttribute('data-theme', t); localStorage.setItem('theme', t); force(x => x + 1)
   }
-  const go = (r) => { setRoute(r); setSidebarOpen(false) }
+  const go = (r, params) => { setRoute(r); setRouteParams(params || null); setSidebarOpen(false) }
   const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
 
   const sections = [
@@ -314,7 +310,9 @@ function Shell() {
         <div className="content">
           {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
           {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
-            onOpen={(d, n) => { openTwin(d, n); go('dashboard') }} onBuild={() => go('build')} />}
+            onOpen={(d, n) => { openTwin(d, n); go('dashboard') }}
+            onOpenExisting={(t) => { openExisting(t.tenant_id, t.domain, t.name); go('dashboard') }}
+            onBuild={() => go('build')} />}
           {route === 'dashboard' && (active
             ? (active.tenant && isMachineDomain(serviceDomain(active.domain))
                 ? <MachineDashboard tenant={active.tenant} domain={serviceDomain(active.domain)} name={active.name} onNav={go} />
@@ -322,13 +320,6 @@ function Shell() {
             : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
-          {/* Vertical-specific pages — no twin gate, they use mock/simulated data */}
-          {route === 'networkmap' && <NetworkMap />}
-          {route === 'chargingmap' && <ChargingMap />}
-          {route === 'batteryheatmap' && <BatteryHeatmap />}
-          {route === 'bedboard' && <BedBoard />}
-          {route === 'medgas' && <MedGasSchematic />}
-          {route === 'tacticalmap' && <TacticalMap />}
 
           {/* Scenario & Faults — SimulationWorkspace owns all tabs including twin faults.
               Not gated on active twin — cascade engine has no twin dependency. */}
@@ -365,6 +356,9 @@ function Shell() {
           )}
           {route === 'builder' && <AgentBuilder onNav={go} vertical={vertical} />}
           {route === 'teamchat' && <TeamChat onNav={go} />}
+          {route === 'chat' && (routeParams?.agent
+            ? <AgentChat agent={routeParams.agent} onBack={() => go('builder')} />
+            : <AgentBuilder onNav={go} vertical={vertical} />)}
         </div>
       </div>
 

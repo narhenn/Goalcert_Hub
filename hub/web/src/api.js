@@ -22,6 +22,17 @@ const TWIN_TEMPLATE_FOR = {
   'mrt-line': 'railway-metro',
   'ev-network': 'ev-charging-network',
 }
+export const twinTemplateFor = (domain) => TWIN_TEMPLATE_FOR[domain] || domain
+
+// The twin service returns its own URLs (e.g. a reconstructed model at
+// /api/v1/threed/...). Rewrite them onto the hub gateway so the browser can
+// fetch them through the single origin with the user's JWT.
+export function twinAssetUrl(serviceUrl) {
+  if (!serviceUrl) return serviceUrl
+  if (serviceUrl.startsWith('/api/v1/')) return '/api/twin/' + serviceUrl.slice('/api/v1/'.length)
+  if (serviceUrl.startsWith('/api/twin/') || /^https?:/i.test(serviceUrl)) return serviceUrl
+  return '/api/twin' + (serviceUrl.startsWith('/') ? '' : '/') + serviceUrl
+}
 
 const API = {
   // ── Auth ──
@@ -56,6 +67,7 @@ const API = {
     // real tenant with a live 3-D scene); unknown ids pass through unchanged.
     create: (name, domain) =>
       post('/api/twin/twins', { name, domain: TWIN_TEMPLATE_FOR[domain] || domain, actor: 'hub' }),
+    remove: (tenant) => del(`/api/twin/twins/${encodeURIComponent(tenant)}`),
     state: (tenant) => get(`/api/twin/twins/${tenant}`),
     topology: (tenant) => get(`/api/twin/topology?tenant=${tenant}`),
     findings: (tenant, limit = 20) => get(`/api/twin/findings?tenant=${tenant}&limit=${limit}`),

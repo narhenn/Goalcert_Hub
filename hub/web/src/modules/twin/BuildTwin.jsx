@@ -15,6 +15,7 @@ import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import API from '../../api.js'
 import BimViewer from './scene/BimViewer.jsx'
+import GlbViewer from './scene/views/GlbViewer.jsx'
 
 const STAGES = [
   { k: 'upload', label: 'Uploading image', icon: 'ti-photo-up' },
@@ -181,7 +182,9 @@ export default function BuildTwin({ onOpened }) {
           {built && (
             <>
               <div style={{ height: 300, borderRadius: 12, overflow: 'hidden', position: 'relative', background: '#1b1e26' }}>
-                <BimViewer scene={built.scene} tenant={built.tenant} />
+                {built.scene?.model_url
+                  ? <GlbViewer url={built.scene.model_url} height={300} label="Reconstructed model" />
+                  : <BimViewer scene={built.scene} tenant={built.tenant} />}
               </div>
               <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Icon n="ti-circle-check" style={{ color: 'var(--accent-green)' }} />

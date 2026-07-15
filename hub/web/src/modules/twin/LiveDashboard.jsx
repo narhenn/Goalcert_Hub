@@ -2,27 +2,51 @@
 // findings. Fault injection only appears if the Scenario Engine is entitled; the
 // "Repair with AI" CTA only appears if the Agentic AI layer is entitled — the panel
 // composes itself from what the tenant has.
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Icon, SIG, sevClass, fmt, pct, hColor, tilesFor, useCountUp, HealthRing, Sparkline } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { useEntitlements } from '../../hub/registry.jsx'
 import { faultsFor, humanize } from '../../hub/util.js'
 import BimViewer from './scene/BimViewer.jsx'
+import GlbViewer from './scene/views/GlbViewer.jsx'
+import API from '../../api.js'
 
-// domain → the extra twin views that live UNDER the dashboard (reached from the
-// views strip below, not the sidebar). Every twin gets Prediction; some domains
-// add a bespoke map/board.
-const DOMAIN_VIEWS = {
-  'mrt-line': [{ id: 'networkmap', label: 'Network Map', icon: 'ti-train' }],
-  'ev-network': [
-    { id: 'chargingmap', label: 'Charging Map', icon: 'ti-charging-pile' },
-    { id: 'batteryheatmap', label: 'Battery Heatmap', icon: 'ti-battery-3' },
-  ],
-  hospital: [
-    { id: 'bedboard', label: 'Bed Board', icon: 'ti-bed' },
-    { id: 'medgas', label: 'Med Gas', icon: 'ti-vaccine' },
-  ],
-  'defence-base': [{ id: 'tacticalmap', label: 'Tactical Map', icon: 'ti-shield-star' }],
+// The only extra view a twin exposes from here is Prediction — every bespoke
+// per-domain surface (network map, bed board, heatmaps, tactical map…) is
+// rendered INSIDE the dashboard by MachineDashboard, from the domain the twin
+// service reports. No separate hub pages.
+
+/** The twin's real 3-D scene: a reconstructed object scan (model_url) renders
+ *  its GLB; otherwise the BIM scene from the twin's own graph geometry. */
+function TwinScene({ tenant }) {
+  const [scene, setScene] = useState(undefined)   // undefined = loading
+  useEffect(() => {
+    let alive = true
+    setScene(undefined)
+    API.twin.scene(tenant)
+      .then(r => { if (alive) setScene(r?.scene_result || null) })
+      .catch(() => { if (alive) setScene(null) })
+    return () => { alive = false }
+  }, [tenant])
+
+  return (
+    <div className="card section-gap" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card-title" style={{ padding: '14px 16px 0' }}>
+        <Icon n="ti-3d-cube-sphere" /> Live 3-D Twin
+        <span className="pill pill-green" style={{ fontSize: 9 }}>● {scene?.model_url ? 'reconstructed model' : 'reconstructed'}</span>
+        <span className="hint" style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 400 }}>
+          drag to orbit · scroll to zoom{scene?.model_url ? '' : ' · click an asset'}
+        </span>
+      </div>
+      <div style={{ height: 380, position: 'relative', background: '#1b1e26', marginTop: 12 }}>
+        {scene === undefined
+          ? <div className="empty" style={{ color: '#aab0e0', paddingTop: 160 }}><span className="spinner" /> Reconstructing scene…</div>
+          : scene?.model_url
+            ? <GlbViewer url={scene.model_url} height={380} label="Reconstructed model · live twin" />
+            : <BimViewer scene={scene?.nodes?.length ? scene : undefined} tenant={tenant} />}
+      </div>
+    </div>
+  )
 }
 
 export default function LiveDashboard({ onRepair, onNav }) {
@@ -32,7 +56,6 @@ export default function LiveDashboard({ onRepair, onNav }) {
   const hasAgentic = has('agentic')
   const extraViews = [
     { id: 'predict', label: 'Prediction / RUL', icon: 'ti-chart-histogram' },
-    ...(DOMAIN_VIEWS[active.domain] || []),
   ]
 
   const live = twin?.latest || {}
@@ -99,21 +122,9 @@ export default function LiveDashboard({ onRepair, onNav }) {
 
       {/* Live 3-D digital twin — the twin's real reconstructed scene, streamed
           from the Digital Twin service through the gateway, with live severity
-          overlaid by entityId. Only shown once a live tenant is attached. */}
-      {active.tenant && (
-        <div className="card section-gap" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="card-title" style={{ padding: '14px 16px 0' }}>
-            <Icon n="ti-3d-cube-sphere" /> Live 3-D Twin
-            <span className="pill pill-green" style={{ fontSize: 9 }}>● reconstructed</span>
-            <span className="hint" style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 400 }}>
-              drag to orbit · scroll to zoom · click an asset
-            </span>
-          </div>
-          <div style={{ height: 380, position: 'relative', background: '#1b1e26', marginTop: 12 }}>
-            <BimViewer tenant={active.tenant} />
-          </div>
-        </div>
-      )}
+          overlaid by entityId. A twin built from a photo shows its RECONSTRUCTED
+          model (GLB) rather than the synthesized building. */}
+      {active.tenant && <TwinScene tenant={active.tenant} />}
 
       {/* KPI row */}
       <div className="grid-4 section-gap">
