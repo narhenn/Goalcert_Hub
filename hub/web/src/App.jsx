@@ -23,7 +23,9 @@ import Audit from './modules/core/Audit.jsx'
 import AssetPicker from './modules/AssetPicker.jsx'
 import TwinsLibrary from './modules/twin/TwinsLibrary.jsx'
 import LiveDashboard from './modules/twin/LiveDashboard.jsx'
+import MachineDashboard from './modules/twin/MachineDashboard.jsx'
 import BuildTwin from './modules/twin/BuildTwin.jsx'
+import { isMachineDomain, serviceDomain } from './modules/twin/scene/machine.js'
 import Prediction from './modules/twin/Prediction.jsx'
 import NetworkMap from './modules/twin/NetworkMap.jsx'
 import ChargingMap from './modules/twin/ChargingMap.jsx'
@@ -313,7 +315,11 @@ function Shell() {
           {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
           {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
             onOpen={(d, n) => { openTwin(d, n); go('dashboard') }} onBuild={() => go('build')} />}
-          {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} onNav={go} /> : <NeedAsset onNav={go} />)}
+          {route === 'dashboard' && (active
+            ? (active.tenant && isMachineDomain(serviceDomain(active.domain))
+                ? <MachineDashboard tenant={active.tenant} domain={serviceDomain(active.domain)} name={active.name} onNav={go} />
+                : <LiveDashboard onRepair={() => setTakeover(true)} onNav={go} />)
+            : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
           {/* Vertical-specific pages — no twin gate, they use mock/simulated data */}

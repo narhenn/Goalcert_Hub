@@ -86,6 +86,20 @@ const API = {
     // Returns { tenant, twin_name, committed, facility, scene }. Degrades to a
     // synthesized scene when there's no vision key or the DB is offline.
     buildFromPlan: (body) => post('/api/twin/agents/twin/build-from-plan', body),
+
+    // ── Machine-twin live physics runtime (turbine / EDM / rail / hospital / EV /
+    // defence) — the same endpoints the NextXR machine dashboard uses. These are
+    // distinct from the facility snapshot above: a machine twin has a physics
+    // ticker with subsystem diagnostics, RUL and fault injection. ──
+    machineDomains: () => get('/api/twin/twins/domains'),
+    runtimeState: (tenant) => get(`/api/twin/twins/${encodeURIComponent(tenant)}/state`),
+    diagnostics: (tenant) => get(`/api/twin/twins/${encodeURIComponent(tenant)}/diagnostics`),
+    machinePredict: (tenant, horizon_min = 120, points = 120) =>
+      get(`/api/twin/twins/${encodeURIComponent(tenant)}/predict?horizon_min=${horizon_min}&points=${points}`),
+    network: (tenant) => get(`/api/twin/twins/${encodeURIComponent(tenant)}/network`),
+    runningToggle: (tenant, running = true) =>
+      post(`/api/twin/twins/${encodeURIComponent(tenant)}/running?running=${running}`),
+    simulate: (tenant, body) => post(`/api/twin/twins/${encodeURIComponent(tenant)}/simulate`, body),
   },
 
   // ── AUTOMIND Agentic AI (hub facade: /api/v1/agents on the platform) ──
