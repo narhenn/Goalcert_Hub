@@ -66,37 +66,39 @@ const wOf = (n) => IMPACT_W[n.impact] ?? 1
 
 // Per domain: $ per unit of weighted impact, and two headline units derived from the
 // same weight so they move together with the cascade.
+// `money` is $ per unit of weighted impact — sized so a full uncontained cascade lands in
+// the low-single-digit millions, the realistic range for one operational incident.
 const IMPACT_MODEL = {
   railway: {
-    money: 3.2e6,
+    money: 3.0e5,
     units: (W) => [
       { label: 'passenger-minutes delayed', value: Math.round(W * 52000) },
       { label: 'trains held', value: Math.max(1, Math.round(W * 1.1)) },
     ],
   },
   hospital: {
-    money: 1.5e6,
+    money: 1.5e5,
     units: (W) => [
       { label: 'surgeries cancelled', value: Math.max(1, Math.round(W * 1.4)) },
       { label: 'patients affected', value: Math.round(W * 130) },
     ],
   },
   aerospace: {
-    money: 4.5e6,
+    money: 4.0e5,
     units: (W) => [
       { label: 'flights delayed', value: Math.max(1, Math.round(W * 2.2)) },
       { label: 'hours AOG', value: Math.round(W * 3.5) },
     ],
   },
   defence: {
-    money: 2.0e6,
+    money: 1.8e5,
     units: (W) => [
       { label: 'min response delay', value: Math.round(W * 22) },
       { label: 'readiness', value: Math.round(W * 6), suffix: '%', neg: true },
     ],
   },
 }
-const DEFAULT_MODEL = { money: 2.0e6, units: (W) => [{ label: 'impact units', value: Math.round(W * 100) }] }
+const DEFAULT_MODEL = { money: 2.0e5, units: (W) => [{ label: 'impact units', value: Math.round(W * 100) }] }
 
 export function fmtMoney(v) {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`
