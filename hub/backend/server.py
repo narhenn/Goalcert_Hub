@@ -33,6 +33,7 @@ logger = logging.getLogger("hub-backend")
 # ── Identity + gateway wiring (auth, orgs/users/roles, secure proxy) ──
 from db import init_db                          # noqa: E402
 from seed import seed_super_admin               # noqa: E402
+from seed_clients import seed_demo_orgs          # noqa: E402
 import auth_routes                              # noqa: E402
 import admin_routes                             # noqa: E402
 import gateway                                  # noqa: E402
@@ -45,6 +46,7 @@ app = FastAPI(title="GoalCert Hub Backend", version="2.0.0")
 def _startup() -> None:
     init_db()
     seed_super_admin()
+    seed_demo_orgs()
 
 
 app.include_router(auth_routes.router)
