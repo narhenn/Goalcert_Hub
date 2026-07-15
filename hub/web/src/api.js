@@ -12,6 +12,17 @@ export function setAuthToken(t) {
 export function getAuthToken() { return _token }
 export function authHeaders() { return _token ? { Authorization: `Bearer ${_token}` } : {} }
 
+// hub domain id → Digital Twin service template key (GET /api/twin/twins/templates).
+// Only ids that differ need an entry; matching ids (edm-machine, turbine-engine,
+// defence-base) pass through.
+const TWIN_TEMPLATE_FOR = {
+  datacenter: 'generic-facility',
+  hospital: 'hospital-campus',
+  manufacturing: 'generic-facility',
+  'mrt-line': 'railway-metro',
+  'ev-network': 'ev-charging-network',
+}
+
 const API = {
   // ── Auth ──
   auth: {
@@ -40,7 +51,11 @@ const API = {
     health: () => get('/api/twin/health'),
     templates: () => get('/api/twin/twins/templates'),
     list: () => get('/api/twin/twins'),
-    create: (name, domain) => post('/api/twin/twins', { name, domain, actor: 'hub' }),
+    // The hub's domain ids don't all match the twin service's template keys.
+    // Map them so create() always resolves to a real template (and therefore a
+    // real tenant with a live 3-D scene); unknown ids pass through unchanged.
+    create: (name, domain) =>
+      post('/api/twin/twins', { name, domain: TWIN_TEMPLATE_FOR[domain] || domain, actor: 'hub' }),
     state: (tenant) => get(`/api/twin/twins/${tenant}`),
     topology: (tenant) => get(`/api/twin/topology?tenant=${tenant}`),
     findings: (tenant, limit = 20) => get(`/api/twin/findings?tenant=${tenant}&limit=${limit}`),
@@ -59,6 +74,18 @@ const API = {
     // its live findings (facility twins). Returns { report, result, kind } — markdown.
     analysis: (tenant, horizon_min = 360) =>
       post('/api/twin/agents/ops/analysis', { tenant, horizon_min }),
+    // ── 3-D digital twin (nxr-scene/1) ──
+    // Rebuild a twin's renderable 3-D scene from its own graph geometry (or a
+    // synthesized scene from its asset list). Powers the Live Dashboard hero.
+    // Returns { tenant, scene_result: { nodes, bbox, levels, ... } }.
+    scene: (tenant) => get(`/api/twin/agents/twin/scene/${encodeURIComponent(tenant)}`),
+    // One entity's full node (properties drawer in the 3-D viewer).
+    entity: (id, tenant) => get(`/api/twin/entities/${encodeURIComponent(id)}?tenant=${encodeURIComponent(tenant)}`),
+    // Build a Twin: upload a 2-D image/plan → reconstruct a 3-D scene AND commit a
+    // live twin. Body { data:<image data-URL>, filename, name?, facility?, floors? }.
+    // Returns { tenant, twin_name, committed, facility, scene }. Degrades to a
+    // synthesized scene when there's no vision key or the DB is offline.
+    buildFromPlan: (body) => post('/api/twin/agents/twin/build-from-plan', body),
   },
 
   // ── AUTOMIND Agentic AI (hub facade: /api/v1/agents on the platform) ──

@@ -1,108 +1,167 @@
-// BuildTwin.jsx — "Build a twin from an image." A base Digital Twin feature even
-// though it uses AI (vision → twin spec): it belongs to the twin, not the agent layer.
-// Live mode: calls NextXR API to create a real tenant, then opens the live twin.
-// Stub mode: runs the frontend staged animation as before.
-import React, { useEffect, useRef, useState } from 'react'
+// BuildTwin.jsx — "Build a twin from an image." A base Digital Twin feature.
+//
+// This is now REAL: you drop a photo / floor-plan, it's uploaded (as a data-URL)
+// to the NextXR twin service through the gateway (POST /api/twin/agents/twin/
+// build-from-plan). Vision parses it into a 3-D nxr-scene/1, the engine commits a
+// live twin (graph + telemetry), and we render the reconstructed model right here
+// with the ported 3-D viewer. "Open live dashboard" then attaches to that tenant.
+//
+// It degrades gracefully: if the twin service has no vision key or its DB is
+// offline, build-from-plan still returns a synthesized 3-D scene (committed:false)
+// so the model always renders.
+import React, { useRef, useState } from 'react'
 import { DOMAINS, Icon } from '../../lib.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import API from '../../api.js'
+import BimViewer from './scene/BimViewer.jsx'
 
 const STAGES = [
-  { k: 'segment', label: 'Isolating subject', icon: 'ti-crop' },
-  { k: 'vision', label: 'Vision → twin spec', icon: 'ti-eye-code' },
-  { k: 'geometry', label: 'Reconstructing geometry', icon: 'ti-3d-cube-sphere' },
+  { k: 'upload', label: 'Uploading image', icon: 'ti-photo-up' },
+  { k: 'vision', label: 'Vision → building/asset spec', icon: 'ti-eye-code' },
+  { k: 'geometry', label: 'Reconstructing 3-D geometry', icon: 'ti-3d-cube-sphere' },
   { k: 'signals', label: 'Wiring telemetry & signals', icon: 'ti-plug-connected' },
-  { k: 'seed', label: 'Seeding physics & behaviour', icon: 'ti-cpu' },
+  { k: 'seed', label: 'Committing live twin', icon: 'ti-cpu' },
 ]
 
-export default function BuildTwin({ onOpened }) {
-  const { openTwin, serviceMode } = useTwin()
-  const { log } = useAudit()
-  const [domain, setDomain] = useState('manufacturing')
-  const [name, setName] = useState('')
-  const [stage, setStage] = useState(-1)   // -1 idle, 0..n running, 99 done
-  const [buildLive, setBuildLive] = useState(false)
-  const timer = useRef(null)
-  const simDomains = Object.keys(DOMAINS).filter(k => DOMAINS[k].source === 'sim' && DOMAINS[k].library !== false)
+// facilities the build-from-plan pipeline understands (BIM / building twins)
+const FACILITIES = [
+  { id: 'office', label: 'Office / Facility' },
+  { id: 'datacenter', label: 'Data Center' },
+  { id: 'hospital', label: 'Hospital' },
+  { id: 'manufacturing', label: 'Manufacturing Plant' },
+  { id: 'warehouse', label: 'Warehouse' },
+  { id: 'ev-network', label: 'EV Charging Site' },
+  { id: 'defence-base', label: 'Defence Base' },
+]
 
-  useEffect(() => () => timer.current && clearInterval(timer.current), [])
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+}
+
+export default function BuildTwin({ onOpened }) {
+  const { openExisting } = useTwin()
+  const { log } = useAudit()
+  const fileRef = useRef(null)
+  const [facility, setFacility] = useState('office')
+  const [floors, setFloors] = useState(1)
+  const [name, setName] = useState('')
+  const [preview, setPreview] = useState(null)   // data URL of the chosen image
+  const [file, setFile] = useState(null)
+  const [stage, setStage] = useState(-1)         // -1 idle, 0..n running, 99 done
+  const [built, setBuilt] = useState(null)       // { tenant, scene, committed, twin_name, facility, parse_note }
+  const [error, setError] = useState(null)
+  const timer = useRef(null)
+
+  const pick = async (f) => {
+    if (!f) return
+    setError(null)
+    const url = await fileToDataURL(f)
+    setFile(f); setPreview(url)
+  }
 
   const build = async () => {
-    setStage(0); setBuildLive(false)
-
-    if (serviceMode === 'live') {
-      try {
-        const label = name.trim() || DOMAINS[domain].label
-        // advance pipeline stages visually while the API call runs
-        let i = 0
-        timer.current = setInterval(() => {
-          i += 1
-          if (i < STAGES.length) setStage(i)
-        }, 600)
-        await API.twin.create(label, domain)
-        clearInterval(timer.current)
-        setStage(99); setBuildLive(true)
-        return
-      } catch {
-        clearInterval(timer.current)
-        // NextXR unreachable — fall through to local sim
-      }
-    }
-
-    // local staged animation fallback
+    if (!preview) { setError('Choose an image first.'); return }
+    setError(null); setBuilt(null); setStage(0)
+    // advance the pipeline stages visually while the API call runs
     let i = 0
-    timer.current = setInterval(() => {
-      i += 1
-      if (i >= STAGES.length) { clearInterval(timer.current); setStage(99) }
-      else setStage(i)
-    }, 750)
+    timer.current = setInterval(() => { i += 1; if (i < STAGES.length) setStage(i) }, 700)
+    try {
+      const res = await API.twin.buildFromPlan({
+        data: preview,
+        filename: file?.name || 'plan.png',
+        name: name.trim() || undefined,
+        facility,
+        floors: Number(floors) || 1,
+      })
+      clearInterval(timer.current)
+      setStage(99)
+      setBuilt(res)
+      log('twin', 'build', `Built twin "${res.twin_name}"`,
+        `Reconstructed ${res.facility} from image · ${res.committed ? 'live twin committed' : '3-D only'}`)
+    } catch (e) {
+      clearInterval(timer.current)
+      setStage(-1)
+      setError(e?.detail || e?.message || 'Build failed — is the Digital Twin service running?')
+    }
   }
 
-  const twinName = name.trim() || DOMAINS[domain].label
-  const open = () => {
-    log('twin', 'build', `Built twin "${twinName}"`, `Reconstructed ${DOMAINS[domain].label} from image`)
-    openTwin(domain, twinName); onOpened && onOpened()
+  const openLive = () => {
+    if (!built) return
+    openExisting(built.tenant, built.facility, built.twin_name)
+    onOpened && onOpened()
   }
+
+  const reset = () => { setBuilt(null); setStage(-1); setPreview(null); setFile(null); setName('') }
 
   return (
     <div className="panel">
       <div className="panel-header">
         <div>
           <div className="panel-title">Build a Twin</div>
-          <div className="panel-subtitle">Turn a photo into a live digital twin — vision maps it to a domain, physics seeds it.</div>
+          <div className="panel-subtitle">Drop a photo or 2-D plan — vision reconstructs a live 3-D digital twin.</div>
         </div>
+        {built && <button className="btn" onClick={reset}><Icon n="ti-refresh" /> New</button>}
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
+        {/* ── Left: source + controls ── */}
         <div className="card">
           <div className="card-title"><Icon n="ti-photo-up" /> Source image</div>
-          <div className="build-drop" onClick={stage < 0 ? build : undefined}>
-            <Icon n="ti-photo-plus" />
-            <div style={{ fontWeight: 600, fontSize: 13 }}>Drop an image, or use a sample</div>
-            <div className="hint" style={{ fontSize: 11 }}>2–4 views give higher fidelity</div>
+          <input ref={fileRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }}
+            onChange={e => pick(e.target.files?.[0])} />
+          <div className="build-drop" onClick={() => fileRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); pick(e.dataTransfer.files?.[0]) }}
+            style={preview ? { padding: 0, overflow: 'hidden' } : undefined}>
+            {preview
+              ? <img src={preview} alt="source" style={{ width: '100%', display: 'block', maxHeight: 220, objectFit: 'contain' }} />
+              : <>
+                  <Icon n="ti-photo-plus" />
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Drop a photo / floor plan, or click to browse</div>
+                  <div className="hint" style={{ fontSize: 11 }}>PNG · JPG · PDF — a labelled plan gives the best rooms</div>
+                </>}
           </div>
+
           <div style={{ marginTop: 14 }}>
-            <div className="card-label" style={{ marginBottom: 6 }}>Target domain</div>
-            <select className="select" value={domain} onChange={e => setDomain(e.target.value)} disabled={stage >= 0 && stage !== 99}>
-              {simDomains.map(k => <option key={k} value={k}>{DOMAINS[k].label}</option>)}
+            <div className="card-label" style={{ marginBottom: 6 }}>Facility type</div>
+            <select className="select" value={facility} onChange={e => setFacility(e.target.value)}
+              disabled={stage >= 0 && stage !== 99}>
+              {FACILITIES.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
             </select>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <div className="card-label" style={{ marginBottom: 6 }}>Twin name</div>
-            <input className="hub-input" value={name} onChange={e => setName(e.target.value)}
-              placeholder={DOMAINS[domain].label} disabled={stage >= 0 && stage !== 99} />
+          <div className="grid-2" style={{ marginTop: 12, gap: 12 }}>
+            <div>
+              <div className="card-label" style={{ marginBottom: 6 }}>Twin name</div>
+              <input className="hub-input" value={name} onChange={e => setName(e.target.value)}
+                placeholder={DOMAINS[facility]?.label || 'Facility Twin'} disabled={stage >= 0 && stage !== 99} />
+            </div>
+            <div>
+              <div className="card-label" style={{ marginBottom: 6 }}>Floors</div>
+              <input className="hub-input" type="number" min={1} max={12} value={floors}
+                onChange={e => setFloors(e.target.value)} disabled={stage >= 0 && stage !== 99} />
+            </div>
           </div>
+
           <button className="btn btn-primary" style={{ width: '100%', marginTop: 14, justifyContent: 'center' }}
-            onClick={build} disabled={stage >= 0 && stage !== 99}>
-            {stage >= 0 && stage !== 99 ? <><span className="spinner" /> Generating…</> : <><Icon n="ti-sparkles" /> Generate twin</>}
+            onClick={build} disabled={(stage >= 0 && stage !== 99) || !preview}>
+            {stage >= 0 && stage !== 99 ? <><span className="spinner" /> Reconstructing…</> : <><Icon n="ti-sparkles" /> Generate 3-D twin</>}
           </button>
+          {error && <div className="empty" style={{ color: 'var(--accent-red)', marginTop: 10, textAlign: 'left' }}>{error}</div>}
         </div>
 
-        <div className="card">
-          <div className="card-title"><Icon n="ti-list-check" /> Generation pipeline</div>
-          {stage < 0 && <div className="empty" style={{ padding: '30px 10px' }}>The 19-stage pipeline runs here — segment, vision spec, geometry, signals, seed.</div>}
-          {stage >= 0 && (
+        {/* ── Right: pipeline → 3-D result ── */}
+        <div className="card" style={{ minHeight: 320 }}>
+          <div className="card-title"><Icon n="ti-list-check" /> {built ? 'Reconstructed twin' : 'Reconstruction pipeline'}</div>
+
+          {stage < 0 && <div className="empty" style={{ padding: '30px 10px' }}>Vision parse → 3-D geometry → telemetry → committed live twin.</div>}
+
+          {stage >= 0 && !built && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {STAGES.map((s, i) => {
                 const done = stage === 99 || i < stage
@@ -118,25 +177,26 @@ export default function BuildTwin({ onOpened }) {
               })}
             </div>
           )}
-          {stage === 99 && (
-            <div style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(22,163,74,.05)',
-              border: '1px solid rgba(22,163,74,.2)', borderRadius: 12 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon n="ti-circle-check" style={{ color: 'var(--accent-green)' }} /> {twinName} is ready
-                <span
-                  className={`pill ${buildLive ? 'pill-green' : 'pill-surface'}`}
-                  style={{ fontSize: 8 }}
-                  title={buildLive ? 'Created on NextXR backend' : 'Local simulation'}
-                >
-                  {buildLive ? '● live' : '◌ sim'}
+
+          {built && (
+            <>
+              <div style={{ height: 300, borderRadius: 12, overflow: 'hidden', position: 'relative', background: '#1b1e26' }}>
+                <BimViewer scene={built.scene} tenant={built.tenant} />
+              </div>
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Icon n="ti-circle-check" style={{ color: 'var(--accent-green)' }} />
+                <b>{built.twin_name}</b>
+                <span className={`pill ${built.committed ? 'pill-green' : 'pill-surface'}`} style={{ fontSize: 8 }}
+                  title={built.committed ? 'Committed live on the twin service' : '3-D reconstructed; DB offline so not committed'}>
+                  {built.committed ? '● live twin' : '◌ 3-D only'}
                 </span>
+                {built.synthesized && <span className="pill pill-amber" style={{ fontSize: 8 }} title={built.parse_note || ''}>synthesized (no vision key)</span>}
+                <button className="btn btn-primary" style={{ marginLeft: 'auto', justifyContent: 'center' }} onClick={openLive}>
+                  <Icon n="ti-bolt" /> Open live dashboard
+                </button>
               </div>
-              <div className="hint" style={{ fontSize: 12, marginBottom: 12 }}>
-                {buildLive ? 'Twin provisioned on NextXR — telemetry feed active.' : 'Geometry reconstructed, telemetry wired, physics seeded.'}
-              </div>
-              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={open}>
-                <Icon n="ti-bolt" /> Open live dashboard</button>
-            </div>
+              {built.parse_note && <div className="hint" style={{ fontSize: 11, marginTop: 6 }}>{built.parse_note}</div>}
+            </>
           )}
         </div>
       </div>

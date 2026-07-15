@@ -195,7 +195,7 @@ function Shell() {
 
   const sections = [
     { label: `${persona.short} workspace`, items: nav.filter(it => !HUB_IDS.includes(it.id) && !PLATFORM_MODULES.includes(it.module)), mc: persona.accent },
-    { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin'), mc: MODULES.twin.accent },
+    { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin' && !it.hidden), mc: MODULES.twin.accent },
     { label: MODULES.scenario.label, items: nav.filter(it => it.module === 'scenario'), mc: MODULES.scenario.accent },
     { label: MODULES.hivemind.label, items: nav.filter(it => it.module === 'hivemind'), mc: MODULES.hivemind.accent },
     { label: 'Builder', items: nav.filter(it => it.module === 'agentbuilder'), mc: MODULES.agentbuilder.accent },
@@ -217,7 +217,6 @@ function Shell() {
             <span className="brand-tag">Integration Hub</span>
           </span>
         </span>
-        <VerticalSwitcher />
         <PersonaSwitcher />
         <div className="crumb">{active
           ? <><b>{active.name}</b> · live twin</>
@@ -314,7 +313,7 @@ function Shell() {
           {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
           {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
             onOpen={(d, n) => { openTwin(d, n); go('dashboard') }} onBuild={() => go('build')} />}
-          {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} /> : <NeedAsset onNav={go} />)}
+          {route === 'dashboard' && (active ? <LiveDashboard onRepair={() => setTakeover(true)} onNav={go} /> : <NeedAsset onNav={go} />)}
           {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
           {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
           {/* Vertical-specific pages — no twin gate, they use mock/simulated data */}

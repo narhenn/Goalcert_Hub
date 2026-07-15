@@ -7,12 +7,33 @@ import { Icon, SIG, sevClass, fmt, pct, hColor, tilesFor, useCountUp, HealthRing
 import { useTwin } from '../../hub/twinState.jsx'
 import { useEntitlements } from '../../hub/registry.jsx'
 import { faultsFor, humanize } from '../../hub/util.js'
+import BimViewer from './scene/BimViewer.jsx'
 
-export default function LiveDashboard({ onRepair }) {
+// domain → the extra twin views that live UNDER the dashboard (reached from the
+// views strip below, not the sidebar). Every twin gets Prediction; some domains
+// add a bespoke map/board.
+const DOMAIN_VIEWS = {
+  'mrt-line': [{ id: 'networkmap', label: 'Network Map', icon: 'ti-train' }],
+  'ev-network': [
+    { id: 'chargingmap', label: 'Charging Map', icon: 'ti-charging-pile' },
+    { id: 'batteryheatmap', label: 'Battery Heatmap', icon: 'ti-battery-3' },
+  ],
+  hospital: [
+    { id: 'bedboard', label: 'Bed Board', icon: 'ti-bed' },
+    { id: 'medgas', label: 'Med Gas', icon: 'ti-vaccine' },
+  ],
+  'defence-base': [{ id: 'tacticalmap', label: 'Tactical Map', icon: 'ti-shield-star' }],
+}
+
+export default function LiveDashboard({ onRepair, onNav }) {
   const { active, twin, running, toggleRunning, simFault, injectFault } = useTwin()
   const { has } = useEntitlements()
   const hasScenario = has('scenario')
   const hasAgentic = has('agentic')
+  const extraViews = [
+    { id: 'predict', label: 'Prediction / RUL', icon: 'ti-chart-histogram' },
+    ...(DOMAIN_VIEWS[active.domain] || []),
+  ]
 
   const live = twin?.latest || {}
   const h = twin?.health
@@ -63,6 +84,36 @@ export default function LiveDashboard({ onRepair }) {
           )}
         </div>
       </div>
+
+      {/* Views of this twin (Prediction + any domain-specific map) — reached from
+          here rather than the sidebar, so the twin section stays Twins + Dashboard. */}
+      {onNav && (
+        <div className="twin-views section-gap" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {extraViews.map(v => (
+            <button key={v.id} className="btn" onClick={() => onNav(v.id)}>
+              <Icon n={v.icon} /> {v.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Live 3-D digital twin — the twin's real reconstructed scene, streamed
+          from the Digital Twin service through the gateway, with live severity
+          overlaid by entityId. Only shown once a live tenant is attached. */}
+      {active.tenant && (
+        <div className="card section-gap" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="card-title" style={{ padding: '14px 16px 0' }}>
+            <Icon n="ti-3d-cube-sphere" /> Live 3-D Twin
+            <span className="pill pill-green" style={{ fontSize: 9 }}>● reconstructed</span>
+            <span className="hint" style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 400 }}>
+              drag to orbit · scroll to zoom · click an asset
+            </span>
+          </div>
+          <div style={{ height: 380, position: 'relative', background: '#1b1e26', marginTop: 12 }}>
+            <BimViewer tenant={active.tenant} />
+          </div>
+        </div>
+      )}
 
       {/* KPI row */}
       <div className="grid-4 section-gap">

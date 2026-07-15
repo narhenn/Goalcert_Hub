@@ -79,7 +79,10 @@ export function TwinProvider({ children }) {
     if (serviceMode === 'live') {
       try {
         const res = await API.twin.create(label, domain)
-        const tenant = res.tenant_id || res.id || res.tenant
+        // The twin service returns { status, twin: { tenant_id } }; some builds
+        // also mirror it top-level. Accept every shape so the live tenant (and
+        // therefore the 3-D scene + live telemetry) always attaches.
+        const tenant = res.twin?.tenant_id || res.tenant_id || res.id || res.tenant
         setActive({ domain, name: label, tenant })
         activeTenantRef.current = tenant
         // kick off feed on the backend
@@ -93,9 +96,18 @@ export function TwinProvider({ children }) {
     activeTenantRef.current = null
   }, [serviceMode])
 
+  // openExisting: attach to a twin that already exists on the backend (e.g. one
+  // just reconstructed by Build a Twin → build-from-plan). No create call.
+  const openExisting = useCallback((tenant, domain, name) => {
+    setSimFault(null); setRunning(true)
+    setActive({ domain: domain || 'manufacturing', name: name || tenant, tenant })
+    activeTenantRef.current = tenant
+    if (tenant) API.twin.feedStart(tenant).catch(() => {})
+  }, [])
+
   const api = useMemo(() => ({
     active, twin, running, simFault, serviceMode,
-    openTwin,
+    openTwin, openExisting,
     closeTwin: () => {
       setActive(null); setSimFault(null)
       activeTenantRef.current = null
@@ -104,7 +116,7 @@ export function TwinProvider({ children }) {
     toggleRunning: () => setRunning(r => !r),
     setRunning, setSimFault,
     injectFault: (f) => setSimFault(f || null),
-  }), [active, twin, running, simFault, serviceMode, openTwin])
+  }), [active, twin, running, simFault, serviceMode, openTwin, openExisting])
 
   return <TwinCtx.Provider value={api}>{children}</TwinCtx.Provider>
 }

@@ -78,14 +78,18 @@ export const NAV = [
   { id: 'overview', label: 'Overview', icon: 'ti-layout-dashboard', module: 'core' },
   { id: 'twins', label: 'Twins', icon: 'ti-stack-2', module: 'twin' },
   { id: 'dashboard', label: 'Live Dashboard', icon: 'ti-activity-heartbeat', module: 'twin' },
-  { id: 'build', label: 'Build a Twin', icon: 'ti-sparkles', module: 'twin' },
-  { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin' },
-  { id: 'networkmap', label: 'Network Map', icon: 'ti-train', module: 'twin' },
-  { id: 'chargingmap', label: 'Charging Map', icon: 'ti-charging-pile', module: 'twin' },
-  { id: 'batteryheatmap', label: 'Battery Heatmap', icon: 'ti-battery-3', module: 'twin' },
-  { id: 'bedboard', label: 'Bed Board', icon: 'ti-bed', module: 'twin' },
-  { id: 'medgas', label: 'Med Gas Schematic', icon: 'ti-vaccine', module: 'twin' },
-  { id: 'tacticalmap', label: 'Tactical Map', icon: 'ti-shield-star', module: 'twin' },
+  // The Digital Twin surfaces below are NOT separate sidebar entries — they are
+  // views OF a twin, reached from the Twins library (Build) and the Live Dashboard
+  // (Prediction + the domain-specific map). `hidden` keeps the route navigable but
+  // out of the sidebar, so the twin section stays "Twins + Live Dashboard" only.
+  { id: 'build', label: 'Build a Twin', icon: 'ti-sparkles', module: 'twin', hidden: true },
+  { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin', hidden: true },
+  { id: 'networkmap', label: 'Network Map', icon: 'ti-train', module: 'twin', hidden: true },
+  { id: 'chargingmap', label: 'Charging Map', icon: 'ti-charging-pile', module: 'twin', hidden: true },
+  { id: 'batteryheatmap', label: 'Battery Heatmap', icon: 'ti-battery-3', module: 'twin', hidden: true },
+  { id: 'bedboard', label: 'Bed Board', icon: 'ti-bed', module: 'twin', hidden: true },
+  { id: 'medgas', label: 'Med Gas Schematic', icon: 'ti-vaccine', module: 'twin', hidden: true },
+  { id: 'tacticalmap', label: 'Tactical Map', icon: 'ti-shield-star', module: 'twin', hidden: true },
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
   { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },

@@ -243,19 +243,8 @@ export const DOMAINS = {
     tiles: TILE_ORDER,
     all: TILE_ORDER,
   },
-  'tram-network': {
-    label: 'Melbourne Tram Network', tag: 'Fleet & Transit', icon: 'ti-train',
-    accent: '#78be20', source: 'live', hero: 'network', detailed: true,
-    blurb: 'The world\'s largest tram network as a live fleet twin: 24 routes, 400+ trams, traction power, track & points, signalling and service operations — with per-vehicle live positions. Feed any network spec to twin any fleet.',
-    tiles: ['fleet:onTimePerformance', 'fleet:headwayAdherence', 'fleet:networkSpeed', 'fleet:fleetAvailability',
-      'fleet:overheadVoltage', 'fleet:substationLoad', 'fleet:railTemperature', 'fleet:networkDelay'],
-    all: ['fleet:onTimePerformance', 'fleet:headwayAdherence', 'fleet:networkSpeed', 'fleet:fleetAvailability',
-      'fleet:tramsInService', 'fleet:passengerLoad', 'fleet:avgDwellTime', 'fleet:tractionPower',
-      'fleet:regenShare', 'fleet:overheadVoltage', 'fleet:substationLoad', 'fleet:railTemperature',
-      'fleet:switchFaults', 'fleet:signalFaults', 'fleet:doorFaults', 'fleet:brakeWear',
-      'fleet:pantographWear', 'fleet:tractionMotorTemp', 'fleet:bogieVibration', 'fleet:networkDelay',
-      'fleet:activeIncidents', 'fleet:hvacLoad'],
-  },
+  // 'tram-network' removed — the tram twin was retired from the Digital Twin
+  // service, so it no longer appears as an openable twin in the hub.
   'datacenter': {
     label: 'Helix Data Center', tag: 'Data Center', icon: 'ti-server-2',
     accent: '#0ea5e9', source: 'sim', hero: 'grid',
