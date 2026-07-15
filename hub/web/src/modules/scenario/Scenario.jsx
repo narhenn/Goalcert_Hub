@@ -7,7 +7,7 @@ import { Icon, pct, hColor, predictCharts, simTrajectory, signalsAtRisk, fmt } f
 import { useTwin } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import { faultsFor, humanize } from '../../hub/util.js'
-import { stubScenarioSpec, stubScenarioNarrative } from '../../aiStubs.js'
+import { stubScenarioNarrative } from '../../aiStubs.js'
 import MiniChart from '../../hub/MiniChart.jsx'
 import MiniMarkdown from '../../hub/MiniMarkdown.jsx'
 import { SourceBadge } from '../../services/integration.jsx'
@@ -29,13 +29,10 @@ const rulSoonest = (rul) => {
 export default function Scenario({ embedded = false }) {
   const { active, injectFault, serviceMode } = useTwin()
   const { log } = useAudit()
-  const [tab, setTab] = useState('fault')          // 'fault' | 'scenario'
-  const [desc, setDesc] = useState('')
   const [hi, setHi] = useState(1)
   const [spec, setSpec] = useState(null)
   const [result, setResult] = useState(null)
   const [running, setRunning] = useState(false)
-  const [authorLive, setAuthorLive] = useState(false)
   const [runLive, setRunLive] = useState(false)
   const [error, setError] = useState(null)
 
@@ -46,31 +43,6 @@ export default function Scenario({ embedded = false }) {
 
   const faults = faultsFor(active.domain)
   const charts = predictCharts(active.domain).slice(0, 2)
-
-  const author = async () => {
-    if (!desc.trim()) return
-    setResult(null)
-    if (serviceMode === 'live') {
-      try {
-        const data = await API.scenario.studio.author(desc, active.domain)
-        setSpec({
-          title: data.title || desc.slice(0, 60),
-          fault: data.fault || 'none',
-          severity: data.severity ?? 0.8,
-          control: data.control ?? 0.85,
-          horizon_min: data.horizon_min || HORIZONS[hi].min,
-          rationale: data.rationale || 'AI-authored via GoalCert Studio.',
-          expected_outcome: data.expected_outcome || '',
-        })
-        setAuthorLive(true)
-        return
-      } catch {
-        // GoalCert Studio unreachable — fall through
-      }
-    }
-    setAuthorLive(false)
-    setSpec(stubScenarioSpec({ kind: tab, description: desc, faults, horizonMin: HORIZONS[hi].min }))
-  }
 
   const pickFault = (f) => { setSpec({ title: f.label, fault: f.id, severity: 0.85, horizon_min: HORIZONS[hi].min, rationale: 'Default fault preset for this asset.' }); setResult(null) }
 
@@ -161,7 +133,7 @@ export default function Scenario({ embedded = false }) {
         <div className="panel-header">
           <div>
             <div className="panel-title">Scenario &amp; Faults</div>
-            <div className="panel-subtitle">{active.name} · author a what-if, run it against the twin, score the outcome</div>
+            <div className="panel-subtitle">{active.name} · pick a fault, run it against the twin, score the outcome</div>
           </div>
         </div>
       )}
@@ -171,51 +143,26 @@ export default function Scenario({ embedded = false }) {
         </div>
       )}
 
-      <div className="seg section-gap">
-            <button className={tab === 'fault' ? 'on' : ''} onClick={() => { setTab('fault'); setSpec(null); setResult(null) }}>Fault catalogue</button>
-            <button className={tab === 'scenario' ? 'on' : ''} onClick={() => { setTab('scenario'); setSpec(null); setResult(null) }}>Author a scenario</button>
-          </div>
-
-          <div className="grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid-2" style={{ alignItems: 'start' }}>
             <div>
-              {tab === 'fault' ? (
-                <div className="card">
-                  <div className="card-title"><Icon n="ti-urgent" /> Injectable faults</div>
-                  {faults.length === 0 && <div className="empty">No fault catalogue for this asset.</div>}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {faults.map(f => (
-                      <button key={f.id} className={`scn-fault ${spec?.fault === f.id ? 'on' : ''}`} onClick={() => pickFault(f)}>
-                        <span className="scn-fault-ic"><Icon n="ti-alert-triangle" /></span>
-                        <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
-                        {spec?.fault === f.id && <Icon n="ti-check" />}
-                      </button>
-                    ))}
-                  </div>
+              <div className="card">
+                <div className="card-title"><Icon n="ti-urgent" /> Injectable faults</div>
+                {faults.length === 0 && <div className="empty">No fault catalogue for this asset.</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {faults.map(f => (
+                    <button key={f.id} className={`scn-fault ${spec?.fault === f.id ? 'on' : ''}`} onClick={() => pickFault(f)}>
+                      <span className="scn-fault-ic"><Icon n="ti-alert-triangle" /></span>
+                      <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
+                      {spec?.fault === f.id && <Icon n="ti-check" />}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                <div className="card">
-                  <div className="card-title"><Icon n="ti-pencil" /> Describe the scenario</div>
-                  <textarea className="hub-input" style={{ minHeight: 96, resize: 'vertical' }} value={desc}
-                    onChange={e => setDesc(e.target.value)}
-                    placeholder={`e.g. "A heatwave pushes cooling to its limit over the afternoon peak on ${active.name}"`} />
-                  <button className="btn btn-primary" style={{ width: '100%', marginTop: 10, justifyContent: 'center' }} onClick={author}>
-                    <Icon n="ti-sparkles" /> Author runnable spec</button>
-                </div>
-              )}
+              </div>
 
               {spec && (
                 <div className="card section-gap">
                   <div className="card-title">
                     <Icon n="ti-file-description" /> {spec.title}
-                    {tab === 'scenario' && (
-                      <span
-                        className={`pill ${authorLive ? 'pill-green' : 'pill-surface'}`}
-                        style={{ fontSize: 8, marginLeft: 6 }}
-                        title={authorLive ? 'Authored by GoalCert Studio (live)' : 'Authored by local stub'}
-                      >
-                        {authorLive ? '● live' : '◌ demo'}
-                      </span>
-                    )}
                   </div>
                   <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12 }}>{spec.rationale}</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
@@ -243,7 +190,7 @@ export default function Scenario({ embedded = false }) {
               )}
 
               {!result && !error && <div className="card"><div className="empty" style={{ padding: '40px 12px' }}>
-                {tab === 'fault' ? 'Pick a fault and run it to project the outcome.' : 'Author a scenario, then run it to see the projected trajectory and KPIs.'}</div></div>}
+                Pick a fault and run it to project the outcome.</div></div>}
 
               {result && (
                 <>

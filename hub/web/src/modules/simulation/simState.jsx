@@ -7,9 +7,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import API from '../../api.js'
 import { useAudit } from '../../hub/audit.jsx'
+import { useTwin } from '../../hub/twinState.jsx'
 import { probeAll } from '../../services/integration.jsx'
 import { mapRunGraph, cascadeEnd } from './engine/mapGraph.js'
-import { DEFAULT_DOMAIN, domainMeta, effectiveReadiness } from './engine/domains.js'
+import { DEFAULT_DOMAIN, domainMeta, effectiveReadiness, simDomainForTwin } from './engine/domains.js'
 
 const Ctx = createContext(null)
 const HISTORY_KEY = 'gc_sim_runs'
@@ -22,8 +23,17 @@ export function useSim() {
 
 export function SimProvider({ children }) {
   const { log } = useAudit()
+  const { active } = useTwin()
 
-  const [domain] = useState(DEFAULT_DOMAIN)      // railway today; registry-driven later
+  // The Simulation workspace follows the active twin: open the MRT twin → railway faults,
+  // a hospital twin → hospital faults, and the header/Builder relabel to match. A twin
+  // with no engine domain falls through to its own key so the engine returns nothing and
+  // we say so honestly. No active twin → the default domain, so the engine tabs still
+  // work standalone (they model a failure, not a machine).
+  const domain = useMemo(() => {
+    const mapped = simDomainForTwin(active?.domain)
+    return mapped || (active ? active.domain : DEFAULT_DOMAIN)
+  }, [active])
   const meta = domainMeta(domain)
 
   // ── scenario library (from the engine) ──
@@ -55,6 +65,7 @@ export function SimProvider({ children }) {
   const [playhead, setPlayhead] = useState(0)
   const [playing, setPlaying] = useState(false)
   const raf = useRef(null)
+  const firstDomainLoad = useRef(true)   // don't wipe the initial defaults; do wipe on a twin switch
 
   const effReadiness = effectiveReadiness(domain, readiness, conditions)
 
@@ -83,6 +94,16 @@ export function SimProvider({ children }) {
   useEffect(() => {
     let alive = true
     setLoadingScenarios(true)
+    // A twin switch changes the domain — drop the previous domain's selection, run and
+    // knobs so nothing from railway leaks into hospital. The very first load keeps the
+    // component defaults instead of blanking them.
+    if (!firstDomainLoad.current) {
+      setScenarioId('')
+      setGraph(null); setSelectedId(null); setError(null)
+      setConditions([]); setRemovedSafeguards([])
+      setReadiness(domainMeta(domain).defaultReadiness)
+    }
+    firstDomainLoad.current = false
     API.scenario.sim.scenarios(domain)
       .then(list => {
         if (!alive) return

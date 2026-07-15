@@ -5,10 +5,10 @@
 // returns and is completely domain-agnostic — a node is a node whether it is a signal
 // block or a hydraulic pump.
 //
-// To add Aerospace later:
-//   1. register its scenarios in services/simulation-engine (already plugin-based), and
-//   2. add one entry below.
-// That is the whole job. No component changes.
+// The keys here are the SIMULATION ENGINE's domain keys (what /scenarios?domain=
+// expects): railway, aerospace, hospital, defence. The Digital Twin uses its own,
+// richer domain keys (lib.jsx DOMAINS) — TWIN_DOMAIN_TO_SIM below bridges the two so
+// the Simulation workspace follows whichever twin is active.
 
 export const SIM_DOMAINS = {
   railway: {
@@ -34,14 +34,76 @@ export const SIM_DOMAINS = {
       { id: 'heat', label: 'Heatwave', penalty: 8, icon: 'ti-temperature' },
     ],
   },
+  aerospace: {
+    id: 'aerospace',
+    label: 'Aerospace MRO',
+    icon: 'ti-plane',
+    blurb: 'Aircraft hydraulics, dispatch, gate turnaround and downstream flight delay.',
+    defaultReadiness: 60,
+    conditions: [
+      { id: 'peak', label: 'Peak Turnaround', penalty: 14, icon: 'ti-users' },
+      { id: 'reduced_staff', label: 'Reduced Crew', penalty: 12, icon: 'ti-user-minus' },
+      { id: 'weather', label: 'Adverse Weather', penalty: 12, icon: 'ti-cloud-storm' },
+      { id: 'heat', label: 'High OAT', penalty: 8, icon: 'ti-temperature' },
+    ],
+  },
+  hospital: {
+    id: 'hospital',
+    label: 'Hospital Operations',
+    icon: 'ti-building-hospital',
+    blurb: 'Theatres, HVAC and pressure, medical gas, power and patient flow.',
+    defaultReadiness: 58,
+    conditions: [
+      { id: 'surge', label: 'Patient Surge', penalty: 14, icon: 'ti-users' },
+      { id: 'reduced_staff', label: 'Reduced Staff', penalty: 12, icon: 'ti-user-minus' },
+      { id: 'heat', label: 'Heatwave', penalty: 8, icon: 'ti-temperature' },
+    ],
+  },
+  defence: {
+    id: 'defence',
+    label: 'Defence Operations',
+    icon: 'ti-shield',
+    blurb: 'Comms, coordination and force readiness under an escalating threat.',
+    defaultReadiness: 64,
+    conditions: [
+      { id: 'threat', label: 'Elevated Threat', penalty: 14, icon: 'ti-alert-triangle' },
+      { id: 'reduced_staff', label: 'Reduced Manning', penalty: 12, icon: 'ti-user-minus' },
+      { id: 'weather', label: 'Low Visibility', penalty: 8, icon: 'ti-cloud-storm' },
+    ],
+  },
 }
 
-export const SIM_DOMAIN_ORDER = ['railway']
+export const SIM_DOMAIN_ORDER = ['railway', 'aerospace', 'hospital', 'defence']
 
 export const DEFAULT_DOMAIN = 'railway'
 
+// Bridge a Digital-Twin domain (lib.jsx DOMAINS key) to a Simulation Engine domain.
+// Twins whose domain isn't here have no engine scenarios — the workspace then shows
+// "no fault scenarios" honestly rather than the wrong domain's cascade.
+export const TWIN_DOMAIN_TO_SIM = {
+  'mrt-line': 'railway',
+  'tram-network': 'railway',
+  'turbine-engine': 'aerospace',
+  'hospital': 'hospital',
+  'defence-base': 'defence',
+}
+
+// The Simulation domain for the active twin, or null if that twin has no engine domain.
+export function simDomainForTwin(twinDomain) {
+  if (!twinDomain) return null
+  return TWIN_DOMAIN_TO_SIM[twinDomain] || null
+}
+
+function prettyLabel(id) {
+  return String(id).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export function domainMeta(id) {
-  return SIM_DOMAINS[id] || SIM_DOMAINS[DEFAULT_DOMAIN]
+  if (SIM_DOMAINS[id]) return SIM_DOMAINS[id]
+  // An active twin with no engine domain: keep an honest label (not railway's) and no
+  // conditions, so the Builder reads "No fault scenarios registered for <that twin>".
+  if (id) return { id, label: prettyLabel(id), icon: 'ti-cube', blurb: '', defaultReadiness: 60, conditions: [] }
+  return SIM_DOMAINS[DEFAULT_DOMAIN]
 }
 
 // Effective readiness actually sent to the engine, after condition penalties.

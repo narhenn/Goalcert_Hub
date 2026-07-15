@@ -6,7 +6,7 @@
 // super_admin/admin may "preview as" another persona to see its dashboard.
 import React, { useEffect, useState } from 'react'
 import { Logo, Icon, pct } from './lib.jsx'
-import { VerticalProvider, useVertical, VERTICALS } from './hub/verticalState.jsx'
+import { VerticalProvider, useVertical, VERTICALS, verticalForTwin } from './hub/verticalState.jsx'
 import { AuthProvider, useAuth } from './hub/auth.jsx'
 import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
 import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
@@ -107,8 +107,17 @@ function BootSplash() {
 // Wrap children with Readiness + Frontline providers (need twin context)
 function FrontlineWrapper({ children }) {
   const { active } = useTwin()
+  const { setVertical } = useVertical()
   const domain = active?.domain || 'edm-machine'
   const twin = active?.twin
+
+  // Opening a twin snaps the top-left vertical switcher to that twin's vertical
+  // (MRT → Railway, St. Vera → Hospital, …). Twins with no vertical leave it as-is.
+  useEffect(() => {
+    const v = verticalForTwin(active?.domain)
+    if (v) setVertical(v)
+  }, [active?.domain]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <ReadinessProvider domain={domain}>
       <FrontlineProvider domain={domain} twin={twin}>

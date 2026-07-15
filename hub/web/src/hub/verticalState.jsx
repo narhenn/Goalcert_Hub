@@ -12,6 +12,21 @@ export const VERTICALS = [
 ]
 export const VERTICAL_MAP = Object.fromEntries(VERTICALS.map(v => [v.id, v]))
 
+// Bridge a Digital-Twin domain (lib.jsx DOMAINS key) to a vertical, so the top-left
+// switcher follows whichever twin is opened. Twins with no matching vertical leave the
+// switcher on the operator's last choice.
+export const TWIN_DOMAIN_TO_VERTICAL = {
+  'turbine-engine': 'aerospace',
+  'tram-network': 'railway',
+  'mrt-line': 'railway',
+  'ev-network': 'ev',
+  'hospital': 'hospital',
+  'defence-base': 'defence',
+}
+export function verticalForTwin(twinDomain) {
+  return TWIN_DOMAIN_TO_VERTICAL[twinDomain] || null
+}
+
 const VerticalCtx = createContext(null)
 
 export function VerticalProvider({ children }) {
