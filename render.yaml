@@ -13,19 +13,35 @@ services:
       - key: CLAUDE_MODEL
         value: "claude-sonnet-4-6"
       - key: SUPER_ADMIN_PASSWORD
-        generateValue: true
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: PYTHON_VERSION
         value: "3.12.0"
+      # Postgres (Render database, schema "hub" — automind owns "public")
+      - key: DATABASE_URL
+        sync: false
+      # ── Secure gateway to the 3 platforms ──
       - key: TWIN_BASE_URL
-        value: ""
-      - key: AGENTS_BASE_URL
-        value: ""
+        value: "https://goalcert-nextxr.onrender.com"
+      - key: TWIN_PATH_PREFIX
+        value: "/api/v1"
+      - key: TWIN_API_KEY
+        sync: false
       - key: SCENARIO_BASE_URL
+        value: "https://goalcert-sim-engine.onrender.com"
+      - key: SCENARIO_PATH_PREFIX
         value: ""
+      - key: SCENARIO_API_KEY
+        sync: false
+      - key: AGENTS_BASE_URL
+        value: "https://goalcert-automind.onrender.com"
+      - key: AGENTS_PATH_PREFIX
+        value: "/api/v1/agents"
       - key: AGENTBUILDER_BASE_URL
-        value: ""
+        value: "https://goalcert-automind.onrender.com"
+      - key: AGENTBUILDER_PATH_PREFIX
+        value: "/api/v1/builder"
 
   # Hub Frontend (React static site with API proxy)
   - type: web
