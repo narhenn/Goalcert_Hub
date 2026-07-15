@@ -33,14 +33,14 @@ SERVICES = {
     "twin": {
         "base": os.environ.get("TWIN_BASE_URL", ""),
         "key": os.environ.get("TWIN_API_KEY", ""),
-        "prefix": os.environ.get("TWIN_PATH_PREFIX", "/api/v1"),
+        "prefix": os.environ.get("TWIN_PATH_PREFIX", "/api"),
         "header": os.environ.get("TWIN_KEY_HEADER", "X-API-Key"),
         "module": "twin",
     },
     "scenario": {
         "base": os.environ.get("SCENARIO_BASE_URL", ""),
         "key": os.environ.get("SCENARIO_API_KEY", ""),
-        "prefix": os.environ.get("SCENARIO_PATH_PREFIX", "/api"),
+        "prefix": os.environ.get("SCENARIO_PATH_PREFIX", ""),
         "header": os.environ.get("SCENARIO_KEY_HEADER", "X-API-Key"),
         "module": "scenario",
     },
