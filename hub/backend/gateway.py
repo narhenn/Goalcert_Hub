@@ -117,7 +117,7 @@ async def _proxy(svc: str, path: str, request: Request, user: User):
 
     # generous read timeout: agentic upstreams run LLM tool-loops that can take
     # a minute-plus; connect stays tight so a *down* service still 503s fast
-    client = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=5.0))
+    client = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0), verify=False)
     try:
         req = client.build_request(request.method, upstream, headers=fwd_headers, content=body)
         resp = await client.send(req, stream=True)
