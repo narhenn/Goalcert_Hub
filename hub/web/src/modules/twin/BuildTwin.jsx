@@ -98,6 +98,34 @@ function inferFacility(text) {
 
 const BUILD_INTENT = /\b(build|create|go|make|generate|start|do it|reconstruct|yes)\b/
 
+/** Run a build via the async start+poll endpoints — a TRELLIS reconstruction on
+ * a cold GPU runs for minutes, longer than HTTP proxies keep a response open.
+ * Falls back to the one-shot endpoint for twin services without the async API. */
+async function runBuildJob(body, onNote) {
+  let started
+  try { started = await API.twin.buildFromPlanStart(body) }
+  catch (e) {
+    if (e.status === 404 || e.status === 405) return API.twin.buildFromPlan(body)
+    throw e
+  }
+  onNote && onNote()
+  const t0 = Date.now()
+  let misses = 0
+  while (Date.now() - t0 < 32 * 60 * 1000) {
+    await new Promise((r) => setTimeout(r, 3000))
+    let s
+    try { s = await API.twin.buildFromPlanStatus(started.build_id); misses = 0 }
+    catch (e) {
+      if (e.status === 404) throw new Error('The twin service restarted mid-build — please build again.')
+      if (++misses > 20) throw e     // tolerate transient poll failures, not a dead service
+      continue
+    }
+    if (s.status === 'done') return s.result
+    if (s.status === 'error') throw new Error(s.error || 'build failed')
+  }
+  throw new Error('Timed out waiting for the 3-D reconstruction.')
+}
+
 export default function BuildTwin({ onOpened }) {
   const { openExisting } = useTwin()
   const { log: auditLog } = useAudit()
@@ -178,9 +206,10 @@ export default function BuildTwin({ onOpened }) {
       const stop = animateLog(PLAN_STEPS)
       say('ai', 'Working on your upload — reconstructing it in 3-D…')
       try {
-        const r = await API.twin.buildFromPlan({ data: plan.dataUrl, filename: plan.filename,
+        const r = await runBuildJob({ data: plan.dataUrl, filename: plan.filename,
           name: name.trim() || undefined, facility: facility || undefined, floors: 1,
-          domain: dom || undefined })
+          domain: dom || undefined },
+        () => setLog((l) => [...l, { t: '> build running on the twin service — a photo on a cold GPU can take a few minutes', cls: 'acc' }]))
         stop()
 
         if (r.kind === 'object') {

@@ -101,6 +101,11 @@ const API = {
     // reconstruction; object photo → TRELLIS (RunPod) 3-D reconstruction, with
     // `domain` mapping it onto a machine domain's live physics twin.
     buildFromPlan: (body) => post('/api/twin/agents/twin/build-from-plan', body),
+    // Async variant: start returns {build_id} instantly; poll status until
+    // {status:'done', result} — a TRELLIS cold start runs for minutes, longer
+    // than any proxy keeps a synchronous response open.
+    buildFromPlanStart: (body) => post('/api/twin/agents/twin/build-from-plan/start', body),
+    buildFromPlanStatus: (id) => get(`/api/twin/agents/twin/build-from-plan/status/${encodeURIComponent(id)}`),
 
     // ── Machine-twin live physics runtime (turbine / EDM / rail / hospital / EV /
     // defence) — the same endpoints the NextXR machine dashboard uses. These are

@@ -25,11 +25,20 @@ export function TwinProvider({ children }) {
   const liveTimer = useRef(null)
   const activeTenantRef = useRef(null)
 
-  // probe the NextXR service on mount — sets the mode once
+  // Probe the NextXR service — and KEEP probing while it's unreachable. Cloud
+  // twin services (Render free tier) sleep when idle: the first probe lands
+  // mid-cold-start and fails, and a one-shot probe would lock the hub in SIM
+  // mode (hiding every real twin) until a full page reload. Retry until live.
   useEffect(() => {
-    API.twin.health()
-      .then(() => setServiceMode('live'))
-      .catch(() => setServiceMode('stub'))
+    let alive = true
+    let timer = null
+    const probe = () => {
+      API.twin.health()
+        .then(() => { if (alive) setServiceMode('live') })
+        .catch(() => { if (alive) timer = setTimeout(probe, 15000) })
+    }
+    probe()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
   }, [])
 
   // reset the sim ramp whenever the active twin changes
