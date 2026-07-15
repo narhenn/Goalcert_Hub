@@ -98,6 +98,12 @@ const API = {
     // Returns { tenant, twin_name, committed, facility, scene }. Degrades to a
     // synthesized scene when there's no vision key or the DB is offline.
     buildFromPlan: (body) => post('/api/twin/agents/twin/build-from-plan', body),
+    // Build-a-Twin multi-step: chat to describe the asset, reconstruct 3D, confirm.
+    buildMessage: (body) => post('/api/twin/agents/twin/build-from-plan', body),
+    buildModel: (body) => post('/api/twin/agents/twin/build-model', body),
+    buildStatus: (taskId) => get(`/api/twin/agents/twin/build-status/${encodeURIComponent(taskId)}`),
+    buildCreate: (body) => post('/api/twin/agents/twin/build-create', body),
+    modelUrl: (taskId) => `/api/twin/models/${encodeURIComponent(taskId)}/model.glb`,
 
     // ── Machine-twin live physics runtime (turbine / EDM / rail / hospital / EV /
     // defence) — the same endpoints the NextXR machine dashboard uses. These are
