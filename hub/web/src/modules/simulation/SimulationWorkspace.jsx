@@ -55,17 +55,19 @@ export default function SimulationWorkspace() {
 
 function Workspace() {
   const { graph, engineUp, error, meta, loadingScenarios } = useSim()
-  const { active, openTwin } = useTwin()
+  const { active, openTwin, closeTwin } = useTwin()
   const connected = engineUp === true
 
   const tabs = connected ? [TWIN_TAB, ...ENGINE_TABS] : [TWIN_TAB]
-  const [tab, setTab] = useState('build')
+  // Always open on Twin Faults — the operator picks (or confirms) a twin first, then
+  // moves to the Builder. The twin tab always exists, so this is a safe landing spot.
+  const [tab, setTab] = useState('twin')
 
-  // Land on a tab that exists. Before the probe resolves we don't know yet, so once it
-  // does, snap to Builder if the engine is up, or to the twin surface if it isn't.
+  // Keep the current tab only if it still exists (the engine tabs vanish when the engine
+  // drops); otherwise fall back to the twin surface, never an engine tab.
   useEffect(() => {
     if (loadingScenarios) return
-    setTab(t => (tabs.some(x => x.id === t) ? t : (connected ? 'build' : 'twin')))
+    setTab(t => (tabs.some(x => x.id === t) ? t : 'twin'))
   }, [connected, loadingScenarios]) // eslint-disable-line
 
   return (
@@ -81,6 +83,9 @@ function Workspace() {
           </div>
         </div>
         <div className="panel-actions">
+          <span className="pill pill-surface" title="Simulation domain — follows the active twin">
+            <Icon n={meta.icon} /> {meta.label}
+          </span>
           {graph && (
             <span className="pill pill-purple mono" title="Deterministic run id — computed by the Simulation Engine">
               run {graph.rootRunId.slice(0, 8)}
@@ -109,7 +114,17 @@ function Workspace() {
             that demands it is just a dead end. */}
         {tab === 'twin' && (
           active
-            ? <Scenario embedded />
+            ? <>
+                <div className="sim-twin-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                    Active twin: <b style={{ color: 'var(--text)' }}>{active.name}</b>
+                  </span>
+                  <button className="btn" onClick={() => closeTwin()} title="Pick a different twin">
+                    <Icon n="ti-switch-horizontal" /> Change twin
+                  </button>
+                </div>
+                <Scenario embedded />
+              </>
             : <div className="card">
                 <div className="card-title">
                   <Icon n="ti-cube" /> Pick an asset
