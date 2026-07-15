@@ -52,6 +52,85 @@ export function computeImpacts(g) {
   }
 }
 
+// ── Quantified, domain-aware impact ──────────────────────────────────────────────
+//
+// Turns the real cascade into estimated money + domain-native units, and splits it into
+// what was INCURRED vs what was PREVENTABLE — the latter straight from the engine's
+// per-edge `preventable` flag (a consequence that only fired because the fault was not
+// contained). Every figure is an ESTIMATE from the coefficients below, not a measurement:
+// the cascade is real, the price tag is a model. Labelled as such in the UI.
+
+// Each impact level weights how much a node contributes (critical costs far more than low).
+const IMPACT_W = { low: 0.4, medium: 1, high: 2.2, critical: 4 }
+const wOf = (n) => IMPACT_W[n.impact] ?? 1
+
+// Per domain: $ per unit of weighted impact, and two headline units derived from the
+// same weight so they move together with the cascade.
+const IMPACT_MODEL = {
+  railway: {
+    money: 3.2e6,
+    units: (W) => [
+      { label: 'passenger-minutes delayed', value: Math.round(W * 52000) },
+      { label: 'trains held', value: Math.max(1, Math.round(W * 1.1)) },
+    ],
+  },
+  hospital: {
+    money: 1.5e6,
+    units: (W) => [
+      { label: 'surgeries cancelled', value: Math.max(1, Math.round(W * 1.4)) },
+      { label: 'patients affected', value: Math.round(W * 130) },
+    ],
+  },
+  aerospace: {
+    money: 4.5e6,
+    units: (W) => [
+      { label: 'flights delayed', value: Math.max(1, Math.round(W * 2.2)) },
+      { label: 'hours AOG', value: Math.round(W * 3.5) },
+    ],
+  },
+  defence: {
+    money: 2.0e6,
+    units: (W) => [
+      { label: 'min response delay', value: Math.round(W * 22) },
+      { label: 'readiness', value: Math.round(W * 6), suffix: '%', neg: true },
+    ],
+  },
+}
+const DEFAULT_MODEL = { money: 2.0e6, units: (W) => [{ label: 'impact units', value: Math.round(W * 100) }] }
+
+export function fmtMoney(v) {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `$${Math.round(v / 1e3)}k`
+  return `$${Math.round(v)}`
+}
+export function fmtNum(v) {
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `${(v / 1e3).toFixed(v >= 1e4 ? 0 : 1)}k`
+  return `${Math.round(v)}`
+}
+
+// The quantified impact for a run: money + units, total and preventable.
+//
+// Preventable = the consequences the engine spawned through a `preventable` edge — the
+// ones that only fired because the fault was not contained. Raise readiness past the gate
+// and those edges never fire, so this is exactly "what the operator could have avoided".
+export function computeImpactModel(g) {
+  const m = IMPACT_MODEL[g?.domain] || DEFAULT_MODEL
+  const nodes = g ? Object.values(g.nodes) : []
+  const Wtotal = nodes.reduce((a, n) => a + wOf(n), 0)
+  const prevIds = new Set((g?.edges || []).filter(e => e.preventable).map(e => e.to))
+  const Wprev = nodes.filter(n => prevIds.has(n.id)).reduce((a, n) => a + wOf(n), 0)
+  return {
+    moneyTotal: m.money * Wtotal,
+    moneyPrev: m.money * Wprev,
+    prevPct: Wtotal ? Math.round((100 * Wprev) / Wtotal) : 0,
+    units: m.units(Wtotal),
+    hasPreventable: Wprev > 1e-6,
+    contained: !!g?.root?.certified,
+  }
+}
+
 // Hub accent for an impact score — same thresholds the rest of the Hub uses.
 export function impactColor(v) {
   if (v >= 70) return 'var(--accent-red)'
