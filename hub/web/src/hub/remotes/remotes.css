@@ -1,0 +1,28 @@
+/* remotes.css — styling for the federation RemoteSlot placeholders.
+   Neutral, theme-aware, and consistent with the hub's panel/pill system. */
+.slot-body { padding: 4px 2px 10px; }
+
+.slot-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--acc, #7A5CF0);
+  background: color-mix(in srgb, var(--acc, #7A5CF0) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--acc, #7A5CF0) 32%, transparent);
+  padding: 5px 11px; border-radius: 999px;
+}
+
+.slot-lead { margin: 14px 0 18px; max-width: 62ch; line-height: 1.55; opacity: .82; }
+
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+
+.slot-card {
+  border: 1px solid var(--border, rgba(128,128,128,.2)); border-radius: 12px;
+  padding: 12px 14px; background: var(--surface, rgba(128,128,128,.04));
+}
+.slot-card-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .6; margin-bottom: 8px; }
+.slot-card code { display: block; font-size: 12px; word-break: break-all; opacity: .9; }
+
+.slot-ok   { color: #16a34a; font-size: 12px; margin-top: 8px; }
+.slot-warn { color: #D07C1E; font-size: 12px; margin-top: 8px; }
+.slot-err  { color: #dc2626; font-size: 12px; margin-top: 8px; }
+
+.slot-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }

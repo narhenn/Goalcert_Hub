@@ -37,6 +37,7 @@ from seed_clients import seed_demo_orgs          # noqa: E402
 import auth_routes                              # noqa: E402
 import admin_routes                             # noqa: E402
 import gateway                                  # noqa: E402
+import page_routes                              # noqa: E402
 from deps import require_admin                  # noqa: E402
 
 app = FastAPI(title="GoalCert Hub Backend", version="2.0.0")
@@ -52,6 +53,7 @@ def _startup() -> None:
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(gateway.router)
+app.include_router(page_routes.router)  # page-oriented BFF contract (/api/pages/*)
 
 # ── Web search tool (DuckDuckGo, no API key needed) ────────────────
 

@@ -21,16 +21,14 @@ import { CoPilotDock, AIDrawer, RepairTakeover } from './hub/AILayer.jsx'
 import Overview from './modules/core/Overview.jsx'
 import Audit from './modules/core/Audit.jsx'
 import AssetPicker from './modules/AssetPicker.jsx'
-import TwinsLibrary from './modules/twin/TwinsLibrary.jsx'
-import LiveDashboard from './modules/twin/LiveDashboard.jsx'
-import MachineDashboard from './modules/twin/MachineDashboard.jsx'
-import BuildTwin from './modules/twin/BuildTwin.jsx'
-import { isMachineDomain, serviceDomain } from './modules/twin/scene/machine.js'
-import Prediction from './modules/twin/Prediction.jsx'
-// Scenario.jsx (twin fault injection) is no longer routed from here — it is the
-// "Twin Faults" tab inside SimulationWorkspace, which now owns the Scenario & Faults page.
-import Trainer from './modules/scenario/Trainer.jsx'
-import SimulationWorkspace from './modules/simulation/SimulationWorkspace.jsx'
+// ── Platform pages are federated remotes now (pivot skeleton). Each renders a
+// RemoteHost slot until its platform is integrated; see PIVOT_PLAN.md /
+// TWIN_INTEGRATION_PLAN.md. The old ported modules under src/modules/{twin,
+// simulation,scenario,hivemind,agentbuilder} are retired per platform at
+// integration time and are no longer routed from here.
+import TwinRemoteHost from './hub/remotes/TwinRemoteHost.jsx'
+import ScenarioRemoteHost from './hub/remotes/ScenarioRemoteHost.jsx'
+import AgenticRemoteHost from './hub/remotes/AgenticRemoteHost.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
@@ -41,11 +39,6 @@ import OpsReadiness from './modules/coo/OpsReadiness.jsx'
 import AdminConsole from './modules/admin/AdminConsole.jsx'
 import UserManagement from './modules/admin/UserManagement.jsx'
 import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
-import HiveMind from './modules/hivemind/HiveMind.jsx'
-import './modules/hivemind/hivemind.css'
-import AgentBuilder from './modules/agentbuilder/AgentBuilder.jsx'
-import TeamChat from './modules/agentbuilder/TeamChat.jsx'
-import AgentChat from './modules/agentbuilder/AgentChat.jsx'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
@@ -162,7 +155,7 @@ function Shell() {
   const ent = useEntitlements()
   const { user, logout } = useAuth()
   const { persona, isPreview, exitPreview, allows } = usePersona()
-  const { active, openTwin, openExisting } = useTwin()
+  const { active } = useTwin()
   const frontline = useFrontline()
   const [route, setRoute] = useState(() => persona.defaultRoute)
   const [routeParams, setRouteParams] = useState(null)
@@ -316,34 +309,20 @@ function Shell() {
 
         <div className="content">
           {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
-          {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
-            onOpen={(d, n) => { openTwin(d, n); go('dashboard') }}
-            onOpenExisting={(t) => { openExisting(t.tenant_id, t.domain, t.name); go('dashboard') }}
-            onBuild={() => go('build')} />}
-          {route === 'dashboard' && (active
-            ? (active.tenant && isMachineDomain(serviceDomain(active.domain))
-                ? <MachineDashboard tenant={active.tenant} domain={serviceDomain(active.domain)} name={active.name} onNav={go} />
-                : <LiveDashboard onRepair={() => setTakeover(true)} onNav={go} />)
-            : <NeedAsset onNav={go} />)}
-          {route === 'build' && <BuildTwin onOpened={() => go('dashboard')} />}
-          {route === 'predict' && (active ? <Prediction /> : <NeedAsset onNav={go} />)}
+          {/* ── Digital Twin — federated NextXR remote (Phase T2) ── */}
+          {['twins', 'dashboard', 'build', 'predict'].includes(route) &&
+            <TwinRemoteHost route={route} onNav={go} />}
 
-          {/* Scenario & Faults — SimulationWorkspace owns all tabs including twin faults.
-              Not gated on active twin — cascade engine has no twin dependency. */}
-          {route === 'scenario' && <SimulationWorkspace />}
+          {/* ── Scenario Engine — federated remote; build a real FE first (Phase T3) ── */}
+          {['scenario', 'train'].includes(route) &&
+            <ScenarioRemoteHost route={route} onNav={go} />}
 
-          {/* Train with AI — guided repair drill, needs active twin */}
-          {route === 'train' && (active
-            ? <div className="panel">
-                <div className="panel-header"><div>
-                  <div className="panel-title">Train with AI</div>
-                  <div className="panel-subtitle">
-                    {active.name} · interactive guided-repair drill
-                  </div>
-                </div></div>
-                <Trainer />
-              </div>
-            : <NeedAsset onNav={go} />)}
+          {/* ── Agentic AI pages — federated AutoMind remote (Phase T4). The agentic
+              ACTION layer (co-pilot dock / AI drawer / takeover) stays hub-native, below. ── */}
+          {['hivemind', 'builder', 'teamchat', 'chat'].includes(route) &&
+            <AgenticRemoteHost route={route} params={routeParams} onNav={go} />}
+
+          {/* ── Hub-native surfaces ── */}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}
           {route === 'flow' && <FrontlineFlow onComplete={() => go('assigned')} />}
           {route === 'supervisor' && <SupervisorDashboard />}
@@ -356,16 +335,6 @@ function Shell() {
           {route === 'superadmin' && <SuperAdminConsole />}
           {route === 'loop' && <LoopBoard />}
           {route === 'audit' && <Audit />}
-          {route === 'hivemind' && (
-            <div className="panel">
-              <HiveMind />
-            </div>
-          )}
-          {route === 'builder' && <AgentBuilder onNav={go} vertical={vertical} />}
-          {route === 'teamchat' && <TeamChat onNav={go} />}
-          {route === 'chat' && (routeParams?.agent
-            ? <AgentChat agent={routeParams.agent} onBack={() => go('builder')} />
-            : <AgentBuilder onNav={go} vertical={vertical} />)}
         </div>
       </div>
 
