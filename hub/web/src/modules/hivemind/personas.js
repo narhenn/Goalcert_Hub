@@ -1,4 +1,4 @@
-// personas.js — the 8 AUTOMIND HiveMind agent personas.
+// personas.js — the 8 GoalCert HiveMind agent personas.
 // Prem's specification: 2 Finance, 2 Marketing, 1 CEO, 1 Chief Strategy, 2 Sales.
 // Each agent produces structured deliverables, not chat.
 

@@ -134,7 +134,7 @@ const API = {
     simulate: (tenant, body) => post(`/api/twin/twins/${encodeURIComponent(tenant)}/simulate`, body),
   },
 
-  // ── AUTOMIND Agentic AI (hub facade: /api/v1/agents on the platform) ──
+  // ── HiveMind Agentic AI (hub facade: /api/v1/agents on the platform) ──
   // One stable verb per capability: `run` for one-shot capabilities, `chat`
   // for memory-threaded conversation. GET capabilities lists what's on offer.
   agents: {
@@ -231,7 +231,7 @@ const API = {
     },
   },
 
-  // ── GoalCert Agent Builder (AUTOMIND hub facade: /api/v1/builder) ──
+  // ── GoalCert Agent Builder (HiveMind hub facade: /api/v1/builder) ──
   // 6-stage guided agent creation + team chat. Gateway proxies /api/agentbuilder/*.
   agentbuilder: {
     health: () => get('/api/agentbuilder/health'),

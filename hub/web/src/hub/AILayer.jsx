@@ -82,11 +82,11 @@ export function CoPilotDock() {
   if (!active) return null
 
   const SLASH_COMMANDS = {
-    '/strategy':  { nav: 'hivemind', label: 'Strategy Brief', msg: 'Launching Strategy Brief... Navigate to AUTOMIND Hive to see your agents at work.' },
-    '/sales':     { nav: 'hivemind', label: 'Sales Package', msg: 'Launching Sales Package... Navigate to AUTOMIND Hive to see your agents at work.' },
-    '/finance':   { nav: 'hivemind', label: 'Finance Review', msg: 'Launching Finance Review... Navigate to AUTOMIND Hive to see your agents at work.' },
-    '/marketing': { nav: 'hivemind', label: 'Campaign Launch', msg: 'Launching Campaign Launch... Navigate to AUTOMIND Hive to see your agents at work.' },
-    '/hive':      { nav: 'hivemind', label: 'Full Brief', msg: 'Launching AUTOMIND Hive full brief... Navigate to AUTOMIND Hive to see all 8 agents at work.' },
+    '/strategy':  { nav: 'hivemind', label: 'Strategy Brief', msg: 'Launching Strategy Brief... Navigate to The Hive to see your agents at work.' },
+    '/sales':     { nav: 'hivemind', label: 'Sales Package', msg: 'Launching Sales Package... Navigate to The Hive to see your agents at work.' },
+    '/finance':   { nav: 'hivemind', label: 'Finance Review', msg: 'Launching Finance Review... Navigate to The Hive to see your agents at work.' },
+    '/marketing': { nav: 'hivemind', label: 'Campaign Launch', msg: 'Launching Campaign Launch... Navigate to The Hive to see your agents at work.' },
+    '/hive':      { nav: 'hivemind', label: 'Full Brief', msg: 'Launching HiveMind full brief... Navigate to The Hive to see all 7 agents at work.' },
     '/help': {
       nav: null,
       msg: 'Available commands:\n/strategy — Strategy Brief (market + competitive + financial)\n/sales — Sales Package (pipeline + proposals)\n/finance — Finance Review (P&L + risk)\n/marketing — Campaign Launch (research + campaigns)\n/hive — Full Business Review (all 8 agents)\n/help — show this help',

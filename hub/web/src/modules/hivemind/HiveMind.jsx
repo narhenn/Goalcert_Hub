@@ -1,4 +1,4 @@
-// HiveMind.jsx — the full VeeHive-style agent coordination view for AUTOMIND/GoalCert.
+// HiveMind.jsx — the full VeeHive-style agent coordination view for HiveMind/GoalCert.
 // 4-step flow: Onboard → Brief → Build → Approve
 // The hive view shows agents as hex avatars that pulse and connect visually while working.
 // Each agent produces a deliverable card, not a chat bubble.
@@ -253,7 +253,7 @@ function HiveHeader({ step, setStep, running }) {
           <Icon n="ti-hexagon" />
         </HexIcon>
         <div>
-          <div className="hm-brand-name">AUTOMIND Hive</div>
+          <div className="hm-brand-name">HiveMind</div>
           <div className="hm-brand-tag">7 specialists · one brief</div>
         </div>
       </div>

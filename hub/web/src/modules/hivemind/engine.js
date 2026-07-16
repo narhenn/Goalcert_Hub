@@ -226,7 +226,7 @@ function stubFor(persona, brief, context) {
           `is auditable in one click.\n\n` +
           `**Solution Overview:**\n` +
           `- NextXR Digital Twin — live physics model of your facility\n` +
-          `- AUTOMIND Agentic AI — 8 specialist agents that do real work\n` +
+          `- HiveMind Agentic AI — 8 specialist agents that do real work\n` +
           `- GoalCert Simulation — training from real incidents\n` +
           `- DroneForce — automated inspection and delivery\n\n` +
           `**Pricing:**\n` +

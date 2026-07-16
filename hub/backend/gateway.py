@@ -58,20 +58,30 @@ SERVICES = {
         "header": os.environ.get("AGENTBUILDER_KEY_HEADER", "X-API-Key"),
         "module": "agentbuilder",
     },
-    # AUTOMIND's OWN per-user app API — what its federated UI calls.
+    # HiveMind's per-user app API — what its federated UI calls.
     #
     # This is a DIFFERENT surface from the two facades above: `agents` and
     # `agentbuilder` are the auth-free hub facades (/api/v1/*) used by the hub's
     # native AI layer (the co-pilot buttons) and by other platforms. The federated
-    # Agentic pages instead drive AUTOMIND's real, per-user, DB-backed API
-    # (/api/agents, /api/dashboard, /api/executions, …), which authenticates via
-    # the X-Goalcert-User identity this gateway injects.
-    "automind": {
-        "base": os.environ.get("AUTOMIND_BASE_URL", ""),
-        "key": os.environ.get("AUTOMIND_API_KEY", ""),
-        "prefix": os.environ.get("AUTOMIND_PATH_PREFIX", "/api"),
-        "header": os.environ.get("AUTOMIND_KEY_HEADER", "X-API-Key"),
-        "module": "agentic",
+    # HiveMind pages drive the real, per-user, DB-backed API (/api/agents,
+    # /api/dashboard, /api/executions, …), which authenticates via the
+    # X-Goalcert-User identity this gateway injects.
+    "hivemind": {
+        "base": os.environ.get("HIVEMIND_BASE_URL", ""),
+        "key": os.environ.get("HIVEMIND_API_KEY", ""),
+        "prefix": os.environ.get("HIVEMIND_PATH_PREFIX", "/api"),
+        "header": os.environ.get("HIVEMIND_KEY_HEADER", "X-API-Key"),
+        "module": "hivemind",
+    },
+    # HiveMind Hive — the team brief engine (7 agents, 10 tools).
+    # Separate service (automind-hive on :8095). The federated UI's Hive page
+    # calls /api/hive/brief, /api/hive/agents, /api/hive/followup etc.
+    "hive": {
+        "base": os.environ.get("HIVE_BASE_URL", ""),
+        "key": os.environ.get("HIVE_API_KEY", ""),
+        "prefix": os.environ.get("HIVE_PATH_PREFIX", ""),
+        "header": os.environ.get("HIVE_KEY_HEADER", "X-API-Key"),
+        "module": "hivemind",
     },
 }
 

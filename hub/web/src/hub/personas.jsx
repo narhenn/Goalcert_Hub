@@ -55,8 +55,8 @@ export const PERSONAS = {
     blurb: 'Upload an SOP → the agentic engine drafts the LMS quiz, XR storyboard, sim fault list and AR overlay → review, approve, publish across the loop.',
     done: '80% content generated, 20% curated',
     stages: ['train', 'simulate', 'improve'],
-    platforms: ['scenario', 'agentic', 'agentbuilder'],
-    nav: ['studio', 'scenario', 'train', 'agents', 'templates', 'loop'],
+    platforms: ['scenario', 'agentic', 'hivemind'],
+    nav: ['studio', 'scenario', 'train', 'hivemind', 'hive-builder', 'agents', 'templates', 'loop'],
     defaultRoute: 'studio',
   },
   compliance: {
@@ -77,8 +77,8 @@ export const PERSONAS = {
     blurb: 'Readiness score by site / shift / role → trends on time-to-competency, first-time-fix, incident risk, cost per certified operator → business case export.',
     done: 'A number to run the business on',
     stages: ['observe', 'improve'],
-    platforms: ['twin', 'agentic', 'hivemind', 'agentbuilder'],
-    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'hivemind', 'agents', 'analytics', 'reports', 'loop'],
+    platforms: ['twin', 'agentic', 'hivemind'],
+    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'hivemind', 'hive-builder', 'agents', 'analytics', 'reports', 'loop'],
     defaultRoute: 'ops',
   },
   admin: {
@@ -88,8 +88,8 @@ export const PERSONAS = {
     blurb: 'Create user accounts, assign persona roles, wire data connectors (SAP, Workday, Maximo, ServiceNow, IIoT) → twin ingestion → platform observability.',
     done: 'Right people, right roles, platform trusted',
     stages: [],
-    platforms: ['twin', 'scenario', 'agentic', 'agentbuilder'],
-    nav: ['admin', 'users', 'twins', 'dashboard', 'build', 'agents', 'agentic', 'integrations', 'audit', 'loop'],
+    platforms: ['twin', 'scenario', 'agentic', 'hivemind'],
+    nav: ['admin', 'users', 'twins', 'dashboard', 'build', 'hivemind', 'hive-builder', 'agents', 'agentic', 'integrations', 'audit', 'loop'],
     defaultRoute: 'admin',
   },
   superadmin: {

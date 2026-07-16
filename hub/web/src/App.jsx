@@ -28,7 +28,7 @@ import AssetPicker from './modules/AssetPicker.jsx'
 // integration time and are no longer routed from here.
 import TwinRemoteHost from './hub/remotes/TwinRemoteHost.jsx'
 import ScenarioRemoteHost from './hub/remotes/ScenarioRemoteHost.jsx'
-import AgenticRemoteHost from './hub/remotes/AgenticRemoteHost.jsx'
+import HiveMindRemoteHost from './hub/remotes/HiveMindRemoteHost.jsx'
 import AssignedToMe from './modules/frontline/AssignedToMe.jsx'
 import FrontlineFlow from './modules/frontline/FrontlineFlow.jsx'
 import SupervisorDashboard from './modules/supervisor/SupervisorDashboard.jsx'
@@ -39,17 +39,15 @@ import OpsReadiness from './modules/coo/OpsReadiness.jsx'
 import AdminConsole from './modules/admin/AdminConsole.jsx'
 import UserManagement from './modules/admin/UserManagement.jsx'
 import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
-// Hub-NATIVE: the Hive runs on the hub's own backend (POST /api/hive/run); it is
-// not an AUTOMIND surface, so it is not federated.
-import HiveMind from './modules/hivemind/HiveMind.jsx'
-import './modules/hivemind/hivemind.css'
+// HiveMind module — previously hub-native, now federated. The old ported
+// modules/hivemind/ is being retired in favour of the HiveMind remote.
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 
 // platform-owned nav modules (gated by entitlement + persona policy);
 // everything else is persona workspace or hub chrome.
-const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind', 'agentbuilder']
+const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind']
 const HUB_IDS = ['loop', 'audit']
 
 export default function App() {
@@ -321,14 +319,11 @@ function Shell() {
           {['scenario', 'train'].includes(route) &&
             <ScenarioRemoteHost route={route} onNav={go} />}
 
-          {/* ── Agentic AI PAGES — federated AUTOMIND remote (Class A). The agentic
-              ACTION layer (co-pilot dock / AI drawer / one-tap actions / takeover)
-              stays hub-native below (Class B) — it is not federated. ── */}
-          {['agents', 'templates', 'agentic', 'integrations', 'analytics', 'reports'].includes(route) &&
-            <AgenticRemoteHost route={route} onNav={go} />}
-
-          {/* AUTOMIND Hive — hub-native (runs on the hub's own /api/hive/run) */}
-          {route === 'hivemind' && <div className="panel"><HiveMind /></div>}
+          {/* ── HiveMind — federated remote. The Hive (team brief), Agent Builder,
+              Agents dashboard, and all agentic pages. The co-pilot dock / AI drawer /
+              one-tap actions / Repair-with-AI stays hub-native (Class B). ── */}
+          {['hivemind', 'hive-builder', 'agents', 'templates', 'agentic', 'integrations', 'analytics', 'reports'].includes(route) &&
+            <HiveMindRemoteHost route={route} onNav={go} />}
 
           {/* ── Hub-native surfaces ── */}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}

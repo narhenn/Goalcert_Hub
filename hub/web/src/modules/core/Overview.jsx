@@ -14,7 +14,7 @@ import { loadHistory } from '../hivemind/history.js'
 
 const SERVICE_LABELS = {
   twin: 'NextXR Digital Twin',
-  agents: 'AUTOMIND Agents',
+  agents: 'HiveMind Agents',
   scenario: 'GoalCert Scenarios',
   agentbuilder: 'Agent Builder',
 }
@@ -85,7 +85,7 @@ function HiveMindStats({ onNav }) {
         <span style={{ width: 22, height: 22, borderRadius: '30%', background: 'var(--brand-2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#fff' }}>
           <Icon n="ti-hexagon" />
         </span>
-        AUTOMIND Hive
+        HiveMind
         {totalBriefs > 0 && (
           <span className="pill pill-purple" style={{ fontSize: 9 }}>{totalBriefs} brief{totalBriefs !== 1 ? 's' : ''}</span>
         )}
@@ -211,7 +211,7 @@ export default function Overview({ user, onNav, onOpenAI }) {
         </div>
       </div>
 
-      {/* Platform health + AUTOMIND Hive stats */}
+      {/* Platform health + HiveMind stats */}
       <div className="grid-2 section-gap">
         <PlatformHealth />
         <HiveMindStats onNav={onNav} />

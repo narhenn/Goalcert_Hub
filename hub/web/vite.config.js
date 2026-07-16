@@ -15,9 +15,9 @@ export default defineConfig(({ mode }) => {
   // Local default = NextXR's own backend serving its built frontend (CORS is open
   // there). On AWS this is the S3/CloudFront remote path. Override via .env.local.
   const TWIN_REMOTE = env.VITE_TWIN_REMOTE || 'http://localhost:8080/assets/remoteEntry.js'
-  // AUTOMIND's FastAPI serves no static files, so its remote comes from its own
+  // HiveMind's FastAPI serves no static files, so its remote comes from its own
   // `vite preview` (:4174) locally; S3/CloudFront on AWS.
-  const AGENTS_REMOTE = env.VITE_AGENTS_REMOTE || 'http://localhost:4174/assets/remoteEntry.js'
+  const HIVEMIND_REMOTE = env.VITE_HIVEMIND_REMOTE || 'http://localhost:4174/assets/remoteEntry.js'
 
   return {
     plugins: [
@@ -27,8 +27,8 @@ export default defineConfig(({ mode }) => {
         remotes: {
           // consumed by hub/web/src/hub/remotes/TwinRemoteHost.jsx
           nextxrTwin: TWIN_REMOTE,
-          // consumed by hub/web/src/hub/remotes/AgenticRemoteHost.jsx
-          automindAgents: AGENTS_REMOTE,
+          // consumed by hub/web/src/hub/remotes/HiveMindRemoteHost.jsx
+          hivemindAgents: HIVEMIND_REMOTE,
         },
         // React MUST be a single instance across host+remote or hooks break
         // (that's the only true singleton requirement here). three/@react-three

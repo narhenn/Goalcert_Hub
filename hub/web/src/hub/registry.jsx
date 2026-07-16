@@ -36,11 +36,11 @@ export const MODULES = {
     features: ['Always-on co-pilot', 'Diagnosis & analysis agents', 'Work-order generation', 'Cascade analysis', 'Repair-with-AI takeover'],
   },
   hivemind: {
-    id: 'hivemind', label: 'AUTOMIND Hive', short: 'Hive', icon: 'ti-hexagon',
+    id: 'hivemind', label: 'HiveMind', short: 'Hive', icon: 'ti-hexagon',
     accent: '#7A5CF0', accentSoft: 'rgba(122,92,240,.12)',
-    role: '8 specialist agents that coordinate on one brief',
-    blurb: 'Give the hive one brief and 8 specialist agents coordinate in real-time: CEO, Chief Strategy, 2 Finance, 2 Marketing, 2 Sales — producing executive briefs, strategy reports, financial analysis, campaign plans, pipeline reports and client proposals.',
-    features: ['8 named agent personas', 'CEO synthesis from all outputs', 'Business strategy + finance + sales + marketing', 'Hex hive coordination view', 'One-click approve & export'],
+    role: '7 specialist agents that swarm on one brief with real tools',
+    blurb: 'Give the hive one brief and 7 specialist agents coordinate in real-time — Finance, Content, Demand Gen, CEO Assistant, Sales Outbound, Sales Qual, Personal Assistant — each with real tools: web search, email, spreadsheets, OCR, MEDDPICC scoring, CRM.',
+    features: ['7 tool-wielding agent personas', 'Real tools: web search, email, spreadsheets, OCR', 'SSE-streamed tool narrations + artifacts', 'Agent Builder: create custom agents', 'Follow-up chat with full context'],
   },
   agentbuilder: {
     id: 'agentbuilder', label: 'Agent Builder', short: 'Builder', icon: '⚙',
@@ -68,7 +68,7 @@ export const MODULES_EXT = {
 }
 // merge extended modules into main
 Object.assign(MODULES, MODULES_EXT)
-export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'hivemind', 'agentbuilder', 'frontline', 'supervisor']
+export const MODULE_ORDER = ['twin', 'scenario', 'agentic', 'hivemind', 'frontline', 'supervisor']
 
 // ── Sidebar navigation, tagged by the owning module ──────────────────
 // module: 'core'  → always present (the hub's own cross-cutting surface)
@@ -87,19 +87,17 @@ export const NAV = [
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
   { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },
-  // Hub-native: the Hive runs on the HUB's own backend (POST /api/hive/run) — it
-  // is not an AUTOMIND surface and is therefore not federated.
-  { id: 'hivemind', label: 'AUTOMIND Hive', icon: 'ti-hexagon', module: 'hivemind' },
-  // Agentic AI — federated from AUTOMIND (AgenticRemoteHost). Only AUTOMIND's
-  // STATIC pages get a sidebar entry; its dynamic routes (an agent's detail /
-  // workflow builder, an execution's console) are reached by navigating inside
-  // the remote, exactly as they are standalone.
-  { id: 'agents', label: 'Agents', icon: 'ti-robot', module: 'agentbuilder' },
-  { id: 'templates', label: 'Templates', icon: 'ti-layout-grid', module: 'agentbuilder' },
-  { id: 'agentic', label: 'Agentic', icon: 'ti-sparkles', module: 'agentbuilder' },
-  { id: 'integrations', label: 'Integrations', icon: 'ti-plug', module: 'agentbuilder' },
-  { id: 'analytics', label: 'Analytics', icon: 'ti-chart-bar', module: 'agentbuilder' },
-  { id: 'reports', label: 'Reports', icon: 'ti-file-analytics', module: 'agentbuilder' },
+  // HiveMind — federated from HiveMind (HiveMindRemoteHost). The Hive (team brief),
+  // Agent Builder, Agents dashboard, and all agentic pages are federated; the AI
+  // overlay layer (co-pilot, drawer, one-tap actions) stays hub-native.
+  { id: 'hivemind', label: 'The Hive', icon: 'ti-hexagon', module: 'hivemind' },
+  { id: 'hive-builder', label: 'Agent Builder', icon: 'ti-wand', module: 'hivemind' },
+  { id: 'agents', label: 'Agents', icon: 'ti-robot', module: 'hivemind' },
+  { id: 'templates', label: 'Templates', icon: 'ti-layout-grid', module: 'hivemind' },
+  { id: 'agentic', label: 'Agentic', icon: 'ti-sparkles', module: 'hivemind' },
+  { id: 'integrations', label: 'Integrations', icon: 'ti-plug', module: 'hivemind' },
+  { id: 'analytics', label: 'Analytics', icon: 'ti-chart-bar', module: 'hivemind' },
+  { id: 'reports', label: 'Reports', icon: 'ti-file-analytics', module: 'hivemind' },
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },

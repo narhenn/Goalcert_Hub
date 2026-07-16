@@ -32,7 +32,7 @@ const SAMPLE_SOP = `Guide Roller Inspection & Replace (EDM-03)
 // ── Local SOP parser (NOT an AI call) ──
 // This is a deterministic regex splitter that derives the four asset types
 // from the SOP text structure. The "Drafting..." animation is a staged
-// reveal for UX — no network request is made here. When the AUTOMIND
+// reveal for UX — no network request is made here. When the HiveMind
 // drafting agent ships, the live path in startDraft() will call it;
 // this local parser stays as the SIM/fallback path.
 function parseSteps(sop) {
@@ -97,7 +97,7 @@ export default function ContentStudio() {
     setPhase('drafting'); setRevealed(0); setApproved({}); setEditing(null); setJustPublished(false)
     draftStartRef.current = Date.now()
 
-    // LIVE path: AUTOMIND's `draft-content` capability derives all four assets
+    // LIVE path: HiveMind's `draft-content` capability derives all four assets
     // from the SOP (real LLM when the platform has a key, its deterministic
     // engine otherwise). The local parser stays as the SIM fallback.
     const { data, source: src } = await withFallback('agents',
@@ -140,7 +140,7 @@ export default function ContentStudio() {
     setPublished(next)
     try { localStorage.setItem(CONTENT_KEY, JSON.stringify(next)) } catch {}
     audit.log('scenario', 'content_publish', `Published "${draft.title}" across the loop`,
-      `LMS + XR + fault list + AR overlay, lineage to SOP v1. Drafted by ${source === 'live' ? 'AUTOMIND' : 'local engine'}.`)
+      `LMS + XR + fault list + AR overlay, lineage to SOP v1. Drafted by ${source === 'live' ? 'HiveMind' : 'local engine'}.`)
     loop.emit('train', { summary: `Content published — ${draft.title}`, detail: 'LMS micro-lesson + AR overlay live for assignment.', module: 'scenario', persona: 'lnd' })
     loop.emit('simulate', { summary: `Fault library extended — ${draft.title}`, detail: `${draft.faults.lines.length} injectable faults + XR storyboard registered.`, module: 'scenario', persona: 'lnd' })
     setPhase('idle'); setDraft(null); setSop(''); setJustPublished(true)

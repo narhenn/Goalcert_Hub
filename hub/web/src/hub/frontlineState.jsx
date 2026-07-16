@@ -5,7 +5,7 @@
 //   2. Which findings are active (most findings = highest priority)
 //   3. The operator's readiness score (lower = needs more training first)
 //
-// In production: this calls AUTOMIND to make the assignment decision.
+// In production: this calls HiveMind to make the assignment decision.
 // In stub mode: picks the asset with the most findings.
 import React, { createContext, useContext, useState, useMemo } from 'react'
 import { domainMeta } from '../lib.jsx'

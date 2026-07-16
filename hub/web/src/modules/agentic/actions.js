@@ -23,14 +23,14 @@ export const AGENT_ACTIONS = [
   { id: 'cascade', label: 'Cascade analysis', icon: 'ti-affiliate', hint: 'How one fault propagates' },
 ]
 
-// co-pilot action id → AUTOMIND facade capability (GET /api/agents/capabilities).
+// co-pilot action id → HiveMind facade capability (GET /api/agents/capabilities).
 const CAPABILITY = { diagnose: 'diagnose', analysis: 'analyze', cascade: 'cascade', workorder: 'work-order' }
 
 // runAgent is async — callers must await it (AIDrawer handles this).
-// The AUTOMIND agentic layer is the reasoning engine: POST /api/agents/run
+// The HiveMind agentic layer is the reasoning engine: POST /api/agents/run
 // { capability, tenant, context } → it reads the live twin (by tenant) and returns
 // { result: { text } }. Needs a live tenant + the user's JWT. Without a live tenant
-// (sim twins) or when AUTOMIND is unreachable, we fall back to zero-token local stubs.
+// (sim twins) or when HiveMind is unreachable, we fall back to zero-token local stubs.
 export async function runAgent(id, { domain, machineName, twin, tenant }) {
   const capability = CAPABILITY[id]
   if (!capability) return 'Unknown action.'
@@ -56,7 +56,7 @@ export async function runAgent(id, { domain, machineName, twin, tenant }) {
   return workOrderStub({ domain, machineName, twin })
 }
 
-// AUTOMIND facade returns { result: { text } } for narrative capabilities, or a
+// HiveMind facade returns { result: { text } } for narrative capabilities, or a
 // structured object for others (e.g. work-order → { wo_number, priority, ... }).
 // Render text when present, else fold a structured deliverable into readable markdown.
 function pickText(d) {

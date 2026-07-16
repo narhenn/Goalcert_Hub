@@ -12,7 +12,7 @@ import { authHeaders } from '../api.js'
 export const SERVICES = {
   twin:     { id: 'twin',     label: 'NextXR Digital Twin',    health: '/api/twin/health',     accent: '#0E9E97' },
   scenario: { id: 'scenario', label: 'GoalCert Scenario Engine', health: '/api/scenario/health', accent: '#D07C1E' },
-  agents:   { id: 'agents',   label: 'AUTOMIND Agentic AI',    health: '/api/agents/health',   accent: '#7A5CF0' },
+  agents:   { id: 'agents',   label: 'HiveMind Agentic AI',    health: '/api/agents/health',   accent: '#7A5CF0' },
   hub:      { id: 'hub',      label: 'Hub LLM Backend',        health: '/api/hive/health',     accent: '#6d28d9' },
 }
 
