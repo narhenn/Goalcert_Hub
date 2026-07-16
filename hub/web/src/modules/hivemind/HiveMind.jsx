@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib.jsx'
 import { useVertical } from '../../hub/verticalState.jsx'
-import { useTwin } from '../../hub/twinState.jsx'
+import { useTwin, useTwinFrame } from '../../hub/twinState.jsx'
 import {
   PERSONAS, PERSONA_MAP, LEAD_AGENT_ID,
   FULL_BRIEF_AGENTS, STRATEGY_AGENTS, SALES_AGENTS, FINANCE_AGENTS, MARKETING_AGENTS,
@@ -49,7 +49,8 @@ const CONNECTIONS = [
 // agentState: idle | queued | working | done | error
 
 export default function HiveMind() {
-  const { active, twin } = useTwin()
+  const { active } = useTwin()
+  const twin = useTwinFrame()
   const { vertical } = useVertical()
 
   // 4-step flow state

@@ -10,6 +10,13 @@ import { simTwin, domainMeta } from '../lib.jsx'
 import API, { twinTemplateFor } from '../api.js'
 
 const TwinCtx = createContext(null)
+// The live telemetry frame lives in its OWN context. It changes every poll/tick
+// (1-2×/second); keeping it out of TwinCtx means components that only need the
+// stable API (active twin, serviceMode, actions) — the Twins page, the app
+// shell, the pickers — don't re-render on every frame. That whole-app re-render
+// was the visible "jitter". Only components that actually paint live telemetry
+// subscribe via useTwinFrame().
+const TwinFrameCtx = createContext(null)
 
 export function TwinProvider({ children }) {
   const [active, setActive] = useState(null)      // { domain, name, tenant? } | null
@@ -124,8 +131,12 @@ export function TwinProvider({ children }) {
     if (tenant) API.twin.feedStart(tenant).catch(() => {})
   }, [])
 
+  // Stable API — intentionally EXCLUDES `twin`, so this object's identity does
+  // not change on every telemetry frame (that was the source of the app-wide
+  // jitter). Recomputes only when the active twin, run state, injected fault or
+  // service mode change.
   const api = useMemo(() => ({
-    active, twin, running, simFault, serviceMode,
+    active, running, simFault, serviceMode,
     openTwin, openExisting,
     closeTwin: () => {
       setActive(null); setSimFault(null)
@@ -135,13 +146,29 @@ export function TwinProvider({ children }) {
     toggleRunning: () => setRunning(r => !r),
     setRunning, setSimFault,
     injectFault: (f) => setSimFault(f || null),
-  }), [active, twin, running, simFault, serviceMode, openTwin, openExisting])
+  }), [active, running, simFault, serviceMode, openTwin, openExisting])
 
-  return <TwinCtx.Provider value={api}>{children}</TwinCtx.Provider>
+  // The live frame, isolated in its own provider so only useTwinFrame() readers
+  // re-render when it ticks.
+  const frame = useMemo(() => ({ twin }), [twin])
+
+  return (
+    <TwinCtx.Provider value={api}>
+      <TwinFrameCtx.Provider value={frame}>{children}</TwinFrameCtx.Provider>
+    </TwinCtx.Provider>
+  )
 }
 
 export function useTwin() {
   const ctx = useContext(TwinCtx)
   if (!ctx) throw new Error('useTwin must be used within TwinProvider')
   return ctx
+}
+
+// Subscribe to the live twin frame only (updates every poll/tick). Separate from
+// useTwin so telemetry updates don't re-render components that don't paint them.
+export function useTwinFrame() {
+  const ctx = useContext(TwinFrameCtx)
+  if (!ctx) throw new Error('useTwinFrame must be used within TwinProvider')
+  return ctx.twin
 }

@@ -10,7 +10,7 @@ import { useAudit } from '../../hub/audit.jsx'
 import { useTwin } from '../../hub/twinState.jsx'
 import { probeAll } from '../../services/integration.jsx'
 import { mapRunGraph, cascadeEnd } from './engine/mapGraph.js'
-import { DEFAULT_DOMAIN, domainMeta, effectiveReadiness, simDomainForTwin } from './engine/domains.js'
+import { DEFAULT_DOMAIN, SIM_DOMAIN_ORDER, SIM_DOMAINS, domainMeta, effectiveReadiness, simDomainForTwin } from './engine/domains.js'
 
 const Ctx = createContext(null)
 const HISTORY_KEY = 'gc_sim_runs'
@@ -30,11 +30,23 @@ export function SimProvider({ children }) {
   // with no engine domain falls through to its own key so the engine returns nothing and
   // we say so honestly. No active twin → the default domain, so the engine tabs still
   // work standalone (they model a failure, not a machine).
+  //
+  // The operator can also pick a domain explicitly (domainOverride) to browse and run
+  // ANY vertical's scenarios regardless of the active twin — the engine ships scenarios
+  // for four domains and all of them should be reachable from the hub. Switching the
+  // active twin clears the override so the workspace resumes following the twin.
+  const [domainOverride, setDomainOverride] = useState(null)
+  useEffect(() => { setDomainOverride(null) }, [active?.domain])
   const domain = useMemo(() => {
+    if (domainOverride) return domainOverride
     const mapped = simDomainForTwin(active?.domain)
     return mapped || (active ? active.domain : DEFAULT_DOMAIN)
-  }, [active])
+  }, [active, domainOverride])
   const meta = domainMeta(domain)
+
+  // The domains the operator can pick from (every vertical the engine ships).
+  const allDomains = useMemo(
+    () => SIM_DOMAIN_ORDER.map(id => ({ id, label: SIM_DOMAINS[id].label, icon: SIM_DOMAINS[id].icon })), [])
 
   // ── scenario library (from the engine) ──
   const [scenarios, setScenarios] = useState([])
@@ -302,7 +314,7 @@ export function SimProvider({ children }) {
   }, [end])
 
   const value = useMemo(() => ({
-    domain, meta,
+    domain, meta, allDomains, pickDomain: setDomainOverride,
     scenarios, loadingScenarios, engineUp, refreshScenarios,
     scenarioId, setScenarioId, selectedScenario,
     readiness, setReadiness, effReadiness,
@@ -314,7 +326,7 @@ export function SimProvider({ children }) {
     selectedId, setSelectedId,
     history, refreshHistory,
     playhead, playing, end, togglePlay, restart, seek,
-  }), [domain, meta, scenarios, loadingScenarios, engineUp, refreshScenarios, scenarioId,
+  }), [domain, meta, allDomains, scenarios, loadingScenarios, engineUp, refreshScenarios, scenarioId,
     selectedScenario, readiness, effReadiness, conditions, toggleCondition,
     difficulty, safeguards, toggleSafeguard, removedSafeguards, runConfig, environmentOverride,
     graph, running, error, run, runAt, openRun, selectedId, history, refreshHistory,

@@ -15,7 +15,8 @@ import Safeguards from '../components/Safeguards.jsx'
 
 export default function BuilderPane({ onRan }) {
   const {
-    meta, scenarios, loadingScenarios, engineUp,
+    meta, domain, allDomains, pickDomain,
+    scenarios, loadingScenarios, engineUp,
     scenarioId, setScenarioId,
     readiness, setReadiness, effReadiness,
     conditions, toggleCondition,
@@ -44,6 +45,22 @@ export default function BuilderPane({ onRan }) {
             <Icon n="ti-urgent" /> Fault scenario
             <span className="pill pill-surface">{meta.label}</span>
           </div>
+
+          {/* Domain picker — browse and run ANY vertical's scenarios, not only the
+              active twin's. Picking one overrides the twin-followed domain until the
+              operator switches twin. */}
+          {allDomains?.length > 1 && (
+            <div className="sim-domain-pick" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              {allDomains.map(d => (
+                <button key={d.id}
+                  className={`btn ${domain === d.id ? 'btn-primary' : ''}`}
+                  style={{ fontSize: 11 }}
+                  onClick={() => pickDomain(d.id)}>
+                  <Icon n={d.icon} /> {d.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {loadingScenarios ? (
             <div className="empty"><span className="spinner" /> Loading the scenario library…</div>

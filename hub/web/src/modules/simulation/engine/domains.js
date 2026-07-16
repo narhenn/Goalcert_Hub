@@ -77,15 +77,28 @@ export const SIM_DOMAIN_ORDER = ['railway', 'aerospace', 'hospital', 'defence']
 
 export const DEFAULT_DOMAIN = 'railway'
 
-// Bridge a Digital-Twin domain (lib.jsx DOMAINS key) to a Simulation Engine domain.
-// Twins whose domain isn't here have no engine scenarios — the workspace then shows
-// "no fault scenarios" honestly rather than the wrong domain's cascade.
+// Bridge a Digital-Twin domain to a Simulation Engine domain. Keys cover BOTH the
+// hub's own domain ids (lib.jsx DOMAINS: mrt-line, hospital, …) AND the twin
+// SERVICE's template keys (railway-metro, hospital-campus, defence-base, …) — a
+// twin opened from "My Twins" carries the service key, one opened from the
+// library carries the hub key, and both must resolve to the same engine domain.
+// Twins whose domain isn't here have no engine scenarios — the workspace then
+// shows "no fault scenarios" honestly rather than the wrong domain's cascade.
 export const TWIN_DOMAIN_TO_SIM = {
+  // railway
   'mrt-line': 'railway',
   'tram-network': 'railway',
+  'railway-metro': 'railway',
+  'railway-trainset': 'railway',
+  // aerospace / machines
   'turbine-engine': 'aerospace',
+  'edm-machine': 'aerospace',
+  // hospital
   'hospital': 'hospital',
+  'hospital-campus': 'hospital',
+  // defence
   'defence-base': 'defence',
+  'defence-warship': 'defence',
 }
 
 // The Simulation domain for the active twin, or null if that twin has no engine domain.

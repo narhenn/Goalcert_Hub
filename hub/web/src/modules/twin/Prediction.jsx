@@ -7,7 +7,7 @@
 //   • simulator twins (no tenant) — the built-in forward simulator (unchanged).
 import React, { useMemo, useState } from 'react'
 import { Icon, fmt, pct, hColor, predictCharts, simTrajectory, signalsAtRisk } from '../../lib.jsx'
-import { useTwin } from '../../hub/twinState.jsx'
+import { useTwin, useTwinFrame } from '../../hub/twinState.jsx'
 import { SourceBadge } from '../../services/integration.jsx'
 import MiniChart from '../../hub/MiniChart.jsx'
 import API from '../../api.js'
@@ -338,7 +338,8 @@ const SIM_HORIZONS = [
 ]
 
 function SimForecast() {
-  const { active, twin, simFault } = useTwin()
+  const { active, simFault } = useTwin()
+  const twin = useTwinFrame()
   const [hi, setHi] = useState(1)
   const horizon = SIM_HORIZONS[hi]
   const charts = predictCharts(active.domain)

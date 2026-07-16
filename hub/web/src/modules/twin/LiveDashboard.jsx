@@ -4,7 +4,7 @@
 // composes itself from what the tenant has.
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon, SIG, sevClass, fmt, pct, hColor, tilesFor, useCountUp, HealthRing, Sparkline } from '../../lib.jsx'
-import { useTwin } from '../../hub/twinState.jsx'
+import { useTwin, useTwinFrame } from '../../hub/twinState.jsx'
 import { useEntitlements } from '../../hub/registry.jsx'
 import { faultsFor, humanize } from '../../hub/util.js'
 import BimViewer from './scene/BimViewer.jsx'
@@ -50,7 +50,8 @@ function TwinScene({ tenant }) {
 }
 
 export default function LiveDashboard({ onRepair, onNav }) {
-  const { active, twin, running, toggleRunning, simFault, injectFault } = useTwin()
+  const { active, running, toggleRunning, simFault, injectFault } = useTwin()
+  const twin = useTwinFrame()
   const { has } = useEntitlements()
   const hasScenario = has('scenario')
   const hasAgentic = has('agentic')

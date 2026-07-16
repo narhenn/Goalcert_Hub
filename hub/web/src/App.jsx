@@ -11,7 +11,7 @@ import { AuthProvider, useAuth } from './hub/auth.jsx'
 import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
 import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
 import { LoopProvider } from './hub/loopState.jsx'
-import { TwinProvider, useTwin } from './hub/twinState.jsx'
+import { TwinProvider, useTwin, useTwinFrame } from './hub/twinState.jsx'
 import { AuditProvider } from './hub/audit.jsx'
 import Login from './hub/Login.jsx'
 import ChangePassword from './hub/ChangePassword.jsx'
@@ -162,7 +162,7 @@ function Shell() {
   const ent = useEntitlements()
   const { user, logout } = useAuth()
   const { persona, isPreview, exitPreview, allows } = usePersona()
-  const { active, twin, openTwin, openExisting } = useTwin()
+  const { active, openTwin, openExisting } = useTwin()
   const frontline = useFrontline()
   const [route, setRoute] = useState(() => persona.defaultRoute)
   const [routeParams, setRouteParams] = useState(null)
@@ -300,7 +300,7 @@ function Shell() {
                 {sec.items.map(it => (
                   <a key={it.id} className={`nav-item ${route === it.id ? 'active' : ''}`} onClick={() => go(it.id)}>
                     <Icon n={it.icon} />{it.label}
-                    {it.id === 'dashboard' && (twin?.findings || []).length > 0 && <span className="nav-badge badge-red">{twin.findings.length}</span>}
+                    {it.id === 'dashboard' && <DashboardFindingsBadge />}
                     {it.id === 'assigned' && frontline.status === 'pending' && <span className="nav-badge badge-blue">1</span>}
                   </a>
                 ))}
@@ -384,6 +384,14 @@ function Shell() {
 const ROLE_LABEL = {
   super_admin: 'Platform Owner', admin: 'Admin / IT', coo: 'Plant Manager / COO',
   compliance: 'Compliance Officer', lnd: 'L&D / Trainer', supervisor: 'Line Supervisor', frontline: 'Frontline Operator',
+}
+
+// The sidebar's live findings badge. Subscribes to the live frame on its own so
+// the whole Shell doesn't re-render every telemetry tick.
+function DashboardFindingsBadge() {
+  const twin = useTwinFrame()
+  const n = (twin?.findings || []).length
+  return n > 0 ? <span className="nav-badge badge-red">{n}</span> : null
 }
 
 function NeedAsset({ onNav }) {

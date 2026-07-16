@@ -5,7 +5,7 @@
 // wizard — you can't skip steps, but you can retry Step 4 (competency check).
 import React, { useState, useCallback } from 'react'
 import { Icon, domainMeta, fmt, pct } from '../../lib.jsx'
-import { useTwin } from '../../hub/twinState.jsx'
+import { useTwin, useTwinFrame } from '../../hub/twinState.jsx'
 import { useFrontline } from '../../hub/frontlineState.jsx'
 import { useReadiness } from '../../hub/readinessState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
@@ -26,7 +26,8 @@ const STEPS = [
 export default function FrontlineFlow({ onComplete }) {
   const [step, setStep] = useState(1)
   const [results, setResults] = useState({})
-  const { active, twin } = useTwin()
+  const { active } = useTwin()
+  const twin = useTwinFrame()
   const { assignment, completeFlow } = useFrontline()
   const { score, onFlowComplete } = useReadiness()
   const audit = useAudit()

@@ -6,7 +6,7 @@
 // Live mode: tries orchestrator endpoints first, falls back to stubs when unreachable.
 import React, { useEffect, useRef, useState } from 'react'
 import { Icon, pct, hColor } from '../lib.jsx'
-import { useTwin } from './twinState.jsx'
+import { useTwin, useTwinFrame } from './twinState.jsx'
 import { useAudit } from './audit.jsx'
 import { stubNarration, stubChatReply, stubProcedure } from '../aiStubs.js'
 import { AGENT_ACTIONS, runAgent } from '../modules/agentic/actions.js'
@@ -55,7 +55,8 @@ async function fetchChat(message, ctx) {
 
 // ── Always-on co-pilot dock ───────────────────────────────────────────
 export function CoPilotDock() {
-  const { active, twin, serviceMode } = useTwin()
+  const { active, serviceMode } = useTwin()
+  const twin = useTwinFrame()
   const [open, setOpen] = useState(false)
   const [msgs, setMsgs] = useState([])
   const [input, setInput] = useState('')
@@ -163,7 +164,8 @@ export function CoPilotDock() {
 
 // ── One-tap agent actions drawer ──────────────────────────────────────
 export function AIDrawer({ open, onClose, onPickTwin, onRepair }) {
-  const { active, twin, serviceMode } = useTwin()
+  const { active, serviceMode } = useTwin()
+  const twin = useTwinFrame()
   const { log } = useAudit()
   const [busy, setBusy] = useState(null)
   const [result, setResult] = useState(null)   // { label, text }
@@ -240,7 +242,8 @@ export function AIDrawer({ open, onClose, onPickTwin, onRepair }) {
 
 // ── Cinematic Repair-with-AI takeover ─────────────────────────────────
 export function RepairTakeover({ open, onClose }) {
-  const { active, twin } = useTwin()
+  const { active } = useTwin()
+  const twin = useTwinFrame()
   const { log } = useAudit()
   const [proc, setProc] = useState(null)
   const [step, setStep] = useState(0)

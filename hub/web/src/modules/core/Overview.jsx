@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react'
 import { Icon, pct, hColor, HealthRing, domainMeta } from '../../lib.jsx'
 import { MODULE_ORDER, MODULES, planName, useEntitlements } from '../../hub/registry.jsx'
-import { useTwin } from '../../hub/twinState.jsx'
+import { useTwin, useTwinFrame } from '../../hub/twinState.jsx'
 import { useAudit } from '../../hub/audit.jsx'
 import { timeAgo } from '../../hub/util.js'
 import AssetPicker from '../AssetPicker.jsx'
@@ -127,7 +127,8 @@ function HiveMindStats({ onNav }) {
 
 export default function Overview({ user, onNav, onOpenAI }) {
   const { enabled, has } = useEntitlements()
-  const { active, twin, openTwin } = useTwin()
+  const { active, openTwin } = useTwin()
+  const twin = useTwinFrame()
   const { entries } = useAudit()
   const h = twin?.health
   const findings = twin?.findings || []
