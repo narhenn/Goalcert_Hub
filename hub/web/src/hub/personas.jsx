@@ -56,7 +56,7 @@ export const PERSONAS = {
     done: '80% content generated, 20% curated',
     stages: ['train', 'simulate', 'improve'],
     platforms: ['scenario', 'agentic', 'agentbuilder'],
-    nav: ['studio', 'scenario', 'train', 'builder', 'teamchat', 'loop'],
+    nav: ['studio', 'scenario', 'train', 'agents', 'templates', 'loop'],
     defaultRoute: 'studio',
   },
   compliance: {
@@ -78,7 +78,7 @@ export const PERSONAS = {
     done: 'A number to run the business on',
     stages: ['observe', 'improve'],
     platforms: ['twin', 'agentic', 'hivemind', 'agentbuilder'],
-    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'hivemind', 'builder', 'teamchat', 'loop'],
+    nav: ['ops', 'casestudy', 'dashboard', 'predict', 'hivemind', 'agents', 'analytics', 'reports', 'loop'],
     defaultRoute: 'ops',
   },
   admin: {
@@ -89,7 +89,7 @@ export const PERSONAS = {
     done: 'Right people, right roles, platform trusted',
     stages: [],
     platforms: ['twin', 'scenario', 'agentic', 'agentbuilder'],
-    nav: ['admin', 'users', 'twins', 'dashboard', 'build', 'builder', 'teamchat', 'audit', 'loop'],
+    nav: ['admin', 'users', 'twins', 'dashboard', 'build', 'agents', 'agentic', 'integrations', 'audit', 'loop'],
     defaultRoute: 'admin',
   },
   superadmin: {

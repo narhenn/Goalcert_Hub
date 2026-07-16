@@ -39,6 +39,10 @@ import OpsReadiness from './modules/coo/OpsReadiness.jsx'
 import AdminConsole from './modules/admin/AdminConsole.jsx'
 import UserManagement from './modules/admin/UserManagement.jsx'
 import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
+// Hub-NATIVE: the Hive runs on the hub's own backend (POST /api/hive/run); it is
+// not an AUTOMIND surface, so it is not federated.
+import HiveMind from './modules/hivemind/HiveMind.jsx'
+import './modules/hivemind/hivemind.css'
 import { KpiProvider } from './hub/kpiState.jsx'
 import { ReadinessProvider } from './hub/readinessState.jsx'
 import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
@@ -317,10 +321,14 @@ function Shell() {
           {['scenario', 'train'].includes(route) &&
             <ScenarioRemoteHost route={route} onNav={go} />}
 
-          {/* ── Agentic AI pages — federated AutoMind remote (Phase T4). The agentic
-              ACTION layer (co-pilot dock / AI drawer / takeover) stays hub-native, below. ── */}
-          {['hivemind', 'builder', 'teamchat', 'chat'].includes(route) &&
-            <AgenticRemoteHost route={route} params={routeParams} onNav={go} />}
+          {/* ── Agentic AI PAGES — federated AUTOMIND remote (Class A). The agentic
+              ACTION layer (co-pilot dock / AI drawer / one-tap actions / takeover)
+              stays hub-native below (Class B) — it is not federated. ── */}
+          {['agents', 'templates', 'agentic', 'integrations', 'analytics', 'reports'].includes(route) &&
+            <AgenticRemoteHost route={route} onNav={go} />}
+
+          {/* AUTOMIND Hive — hub-native (runs on the hub's own /api/hive/run) */}
+          {route === 'hivemind' && <div className="panel"><HiveMind /></div>}
 
           {/* ── Hub-native surfaces ── */}
           {route === 'assigned' && <AssignedToMe onStart={() => { frontline.startFlow(); go('flow') }} onNav={go} />}

@@ -58,6 +58,21 @@ SERVICES = {
         "header": os.environ.get("AGENTBUILDER_KEY_HEADER", "X-API-Key"),
         "module": "agentbuilder",
     },
+    # AUTOMIND's OWN per-user app API — what its federated UI calls.
+    #
+    # This is a DIFFERENT surface from the two facades above: `agents` and
+    # `agentbuilder` are the auth-free hub facades (/api/v1/*) used by the hub's
+    # native AI layer (the co-pilot buttons) and by other platforms. The federated
+    # Agentic pages instead drive AUTOMIND's real, per-user, DB-backed API
+    # (/api/agents, /api/dashboard, /api/executions, …), which authenticates via
+    # the X-Goalcert-User identity this gateway injects.
+    "automind": {
+        "base": os.environ.get("AUTOMIND_BASE_URL", ""),
+        "key": os.environ.get("AUTOMIND_API_KEY", ""),
+        "prefix": os.environ.get("AUTOMIND_PATH_PREFIX", "/api"),
+        "header": os.environ.get("AUTOMIND_KEY_HEADER", "X-API-Key"),
+        "module": "agentic",
+    },
 }
 
 # Headers we never forward upstream. `authorization` and `cookie` are stripped on

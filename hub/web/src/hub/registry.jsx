@@ -87,9 +87,19 @@ export const NAV = [
   { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
   { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },
+  // Hub-native: the Hive runs on the HUB's own backend (POST /api/hive/run) — it
+  // is not an AUTOMIND surface and is therefore not federated.
   { id: 'hivemind', label: 'AUTOMIND Hive', icon: 'ti-hexagon', module: 'hivemind' },
-  { id: 'builder', label: 'Agent Builder', icon: '⚙', module: 'agentbuilder' },
-  { id: 'teamchat', label: 'Team Chat', icon: '💬', module: 'agentbuilder' },
+  // Agentic AI — federated from AUTOMIND (AgenticRemoteHost). Only AUTOMIND's
+  // STATIC pages get a sidebar entry; its dynamic routes (an agent's detail /
+  // workflow builder, an execution's console) are reached by navigating inside
+  // the remote, exactly as they are standalone.
+  { id: 'agents', label: 'Agents', icon: 'ti-robot', module: 'agentbuilder' },
+  { id: 'templates', label: 'Templates', icon: 'ti-layout-grid', module: 'agentbuilder' },
+  { id: 'agentic', label: 'Agentic', icon: 'ti-sparkles', module: 'agentbuilder' },
+  { id: 'integrations', label: 'Integrations', icon: 'ti-plug', module: 'agentbuilder' },
+  { id: 'analytics', label: 'Analytics', icon: 'ti-chart-bar', module: 'agentbuilder' },
+  { id: 'reports', label: 'Reports', icon: 'ti-file-analytics', module: 'agentbuilder' },
   { id: 'assigned', label: 'My Shift', icon: 'ti-clipboard-check', module: 'frontline' },
   { id: 'supervisor', label: 'Team Readiness', icon: 'ti-users', module: 'supervisor' },
   { id: 'compliance', label: 'Compliance', icon: 'ti-shield-check', module: 'core' },
