@@ -4,21 +4,23 @@
 // The app is gated on this: no user → Login. The persona a user sees is decided by
 // the role their admin assigned — not a free picker. Entitlements come from the org.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import API, { setAuthToken, getAuthToken } from '../api.js'
+import API, { hasSession } from '../api.js'
 
 const AuthCtx = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(!!getAuthToken())
+  const [loading, setLoading] = useState(hasSession())
   const [error, setError] = useState(null)
 
-  // resume a session from a stored token
+  // Resume from the HttpOnly session cookie. We can't read it (by design), so we
+  // use the readable CSRF cookie as the "there is a session" hint and confirm
+  // with /me — the session cookie rides along automatically.
   useEffect(() => {
-    if (!getAuthToken()) { setLoading(false); return }
+    if (!hasSession()) { setLoading(false); return }
     API.auth.me()
       .then(({ user }) => setUser(user))
-      .catch(() => { setAuthToken(null); setUser(null) })
+      .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
 
@@ -32,8 +34,9 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     setError(null)
     try {
-      const { token, user } = await API.auth.login(email, password)
-      setAuthToken(token)
+      // login sets the HttpOnly session + CSRF cookies; the returned token is for
+      // non-browser clients only and is deliberately NOT stored here.
+      const { user } = await API.auth.login(email, password)
       setUser(user)
       return user
     } catch (e) {
@@ -42,8 +45,9 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const logout = useCallback(() => {
-    setAuthToken(null); setUser(null); setError(null)
+  const logout = useCallback(async () => {
+    try { await API.auth.logout() } catch {}   // server clears the HttpOnly cookie
+    setUser(null); setError(null)
   }, [])
 
   const refresh = useCallback(async () => {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -11,6 +11,7 @@ from deps import get_current_user
 from models import AuditLog, User
 from schemas import ChangePasswordRequest, LoginRequest
 from security import create_access_token, hash_password, verify_password
+from session import clear_session_cookies, new_csrf_token, set_session_cookies
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -22,7 +23,7 @@ def _log(db: Session, actor: User, action: str, detail: str = "") -> None:
 
 
 @router.post("/login")
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(body.password, user.password_hash):
@@ -35,7 +36,17 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     user.last_login = datetime.utcnow()
     db.commit()
     token = create_access_token(user)
+    # Browser session = HttpOnly cookie (never readable by JS) + CSRF token.
+    set_session_cookies(response, token, new_csrf_token())
+    # `token` is still returned for non-browser clients (curl / server-to-server /
+    # tests) which authenticate with `Authorization: Bearer`. The SPA ignores it.
     return {"token": token, "user": user.to_public()}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    clear_session_cookies(response)
+    return {"ok": True}
 
 
 @router.get("/me")

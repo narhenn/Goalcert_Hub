@@ -15,9 +15,9 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from pathlib import Path
@@ -48,6 +48,32 @@ def _startup() -> None:
     init_db()
     seed_super_admin()
     seed_demo_orgs()
+
+
+from session import COOKIE_CSRF, COOKIE_SESSION  # noqa: E402
+
+# Requests that may mutate state and are authenticated by the COOKIE session get a
+# double-submit CSRF check: the readable gc_csrf cookie must match the X-CSRF-Token
+# header. Requests authenticated by an `Authorization: Bearer` header instead are
+# inherently CSRF-safe (a cross-site page cannot set a custom header), so they skip
+# it — that keeps curl / server-to-server clients working.
+_CSRF_EXEMPT = {"/api/auth/login"}
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+@app.middleware("http")
+async def csrf_guard(request: Request, call_next):
+    path = request.url.path
+    if (path.startswith("/api/")
+            and request.method not in _SAFE_METHODS
+            and path not in _CSRF_EXEMPT
+            and request.cookies.get(COOKIE_SESSION)):
+        sent = request.headers.get("X-CSRF-Token")
+        expected = request.cookies.get(COOKIE_CSRF)
+        if not sent or not expected or sent != expected:
+            return JSONResponse(status_code=403,
+                                content={"detail": "CSRF token missing or invalid"})
+    return await call_next(request)
 
 
 app.include_router(auth_routes.router)

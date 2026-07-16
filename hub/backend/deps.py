@@ -7,12 +7,13 @@ The gateway also imports resolve_user_from_token for its own auth check.
 """
 from __future__ import annotations
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from db import get_db
 from models import User
 from security import decode_access_token
+from session import COOKIE_SESSION
 
 
 def _bearer(authorization: str | None) -> str | None:
@@ -38,9 +39,13 @@ def resolve_user_from_token(token: str | None, db: Session) -> User | None:
 
 def get_current_user(
     authorization: str | None = Header(default=None),
+    gc_session: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> User:
-    user = resolve_user_from_token(_bearer(authorization), db)
+    # Cookie first (the browser session — also how EventSource/SSE authenticates,
+    # since it cannot send headers). Bearer stays as a fallback for non-browser
+    # clients (curl, tests, server-to-server).
+    user = resolve_user_from_token(gc_session or _bearer(authorization), db)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user

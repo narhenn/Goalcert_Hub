@@ -60,8 +60,11 @@ SERVICES = {
     },
 }
 
-# headers we never forward upstream
-_HOP_BY_HOP = {"host", "authorization", "content-length", "connection",
+# Headers we never forward upstream. `authorization` and `cookie` are stripped on
+# purpose: the user's hub session (Bearer OR the HttpOnly gc_session cookie) must
+# never leak to a platform — the gateway injects its own server-side key instead
+# and passes identity via the X-Goalcert-* headers below.
+_HOP_BY_HOP = {"host", "authorization", "cookie", "content-length", "connection",
                "keep-alive", "proxy-authorization", "te", "trailer",
                "transfer-encoding", "upgrade"}
 

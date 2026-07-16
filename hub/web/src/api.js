@@ -2,15 +2,26 @@
 // authenticates the JWT and reverse-proxies twin/scenario/agents to the real
 // services with server-side keys. The browser only ever holds the user's token.
 
-// ── Auth token store (set by AuthProvider) ──
-const TOKEN_KEY = 'gc_hub_token'
-let _token = (() => { try { return localStorage.getItem(TOKEN_KEY) || null } catch { return null } })()
-export function setAuthToken(t) {
-  _token = t || null
-  try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY) } catch {}
+// ── Session (HttpOnly cookie + CSRF) ──
+// The hub session is an HttpOnly cookie set at login: JS — including the
+// federated platform remotes that run inside this origin — can NEVER read it, so
+// an XSS cannot exfiltrate it. Same-origin fetches send it automatically (fetch
+// defaults to credentials:'same-origin'), which is also how EventSource/SSE
+// authenticates (it cannot send headers). Mutations echo back a double-submit
+// CSRF token, which the hub sets as a readable `gc_csrf` cookie.
+function readCookie(name) {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'))
+  return m ? decodeURIComponent(m[1]) : null
 }
-export function getAuthToken() { return _token }
-export function authHeaders() { return _token ? { Authorization: `Bearer ${_token}` } : {} }
+export function csrfToken() { return readCookie('gc_csrf') }
+export function hasSession() { return !!csrfToken() }
+// Kept named authHeaders so every caller (and the federated twin remote, via
+// window.__NXR_AUTH__) keeps working — it now carries CSRF, not a Bearer token.
+export function authHeaders() {
+  const t = csrfToken()
+  return t ? { 'X-CSRF-Token': t } : {}
+}
 
 // hub domain id → Digital Twin service template key (GET /api/twin/twins/templates).
 // Only ids that differ need an entry; matching ids (edm-machine, turbine-engine,
@@ -38,6 +49,7 @@ const API = {
   // ── Auth ──
   auth: {
     login: (email, password) => post('/api/auth/login', { email, password }),
+    logout: () => post('/api/auth/logout'),
     me: () => get('/api/auth/me'),
     changePassword: (current_password, new_password) =>
       post('/api/auth/change-password', { current_password, new_password }),
@@ -268,7 +280,7 @@ const API = {
 // ── HTTP helpers ──
 // On 401 the token is stale/invalid → clear it and signal the app to re-auth.
 function onUnauthorized() {
-  setAuthToken(null)
+  // the cookie is HttpOnly — the server clears it; we just tell the app to re-auth
   try { window.dispatchEvent(new CustomEvent('auth:expired')) } catch {}
 }
 
@@ -294,7 +306,7 @@ function isUpstream(r) {
 // On an upstream auth failure, .upstream is true so callers can say "service key
 // rejected" instead of pretending the user was logged out.
 async function request(method, url, body) {
-  const opts = { method, headers: { ...authHeaders() } }
+  const opts = { method, credentials: 'same-origin', headers: { ...authHeaders() } }
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json'
     opts.body = JSON.stringify(body)
@@ -321,7 +333,7 @@ const patch = (url, body) => request('PATCH', url, body ?? {})
 const del = (url) => request('DELETE', url)
 
 async function postForm(url, formData) {
-  const opts = { method: 'POST', headers: { ...authHeaders() }, body: formData }
+  const opts = { method: 'POST', credentials: 'same-origin', headers: { ...authHeaders() }, body: formData }
   const r = await fetch(url, opts)
   if (r.status === 401) onUnauthorized()
   if (!r.ok) {
