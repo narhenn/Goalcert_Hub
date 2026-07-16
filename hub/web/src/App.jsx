@@ -240,9 +240,7 @@ function Shell() {
             <span className="topbar-ai-dot" /><Icon n="ti-robot" /> AI
           </button>
         )}
-        {active && <div className="topstat">
-          <span className={`status-dot ${twin?.health == null ? '' : twin.health > 0.7 ? 'green' : twin.health > 0.4 ? 'amber' : 'red'}`} />
-          Health <b>{pct(twin?.health)}</b></div>}
+        {active && <TopHealthStat />}
         <div className="topstat"><span className="status-dot live" /> LIVE</div>
         <button className="btn btn-ghost" style={{ padding: '5px 8px', fontSize: 14 }} title="Toggle theme" onClick={toggleTheme}>
           <Icon n={isDark ? 'ti-sun' : 'ti-moon'} />
@@ -392,6 +390,20 @@ function DashboardFindingsBadge() {
   const twin = useTwinFrame()
   const n = (twin?.findings || []).length
   return n > 0 ? <span className="nav-badge badge-red">{n}</span> : null
+}
+
+// The topbar live-health chip. Same reason it's its own component: it reads the
+// per-frame twin health, so isolating it keeps that update out of Shell (which
+// would otherwise re-render the whole app every tick — the jitter).
+function TopHealthStat() {
+  const twin = useTwinFrame()
+  const h = twin?.health
+  return (
+    <div className="topstat">
+      <span className={`status-dot ${h == null ? '' : h > 0.7 ? 'green' : h > 0.4 ? 'amber' : 'red'}`} />
+      Health <b>{pct(h)}</b>
+    </div>
+  )
 }
 
 function NeedAsset({ onNav }) {
