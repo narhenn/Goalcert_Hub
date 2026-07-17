@@ -103,6 +103,56 @@ flowchart TB
 
 ---
 
+## 0.5 Handover — what git does and does NOT carry
+
+Cloning all four repos gives a teammate **everything except secrets**. Nothing else needs
+to be sent by hand.
+
+**In git** — code, all four `Dockerfile`s + `.dockerignore`s, this runbook, and a current
+`.env.example` per service (the *only* spec of what to set, since `.env` is gitignored):
+
+| Repo | Branch | Template |
+|---|---|---|
+| `Goalcert_Hub` | `hivemind` | `hub/backend/.env.example` |
+| `simulation-engine-standalone` | `simcore-react` | `backend/.env.example` |
+| `Next XR/nextxr-ontology-v3` | `pivot/federation-skeleton` | `.env.example` |
+| `goalcert-automind` | `hivemind` | `backend/.env.example` |
+
+**NOT in git — send these separately, never over chat/email:**
+
+| Item | How |
+|---|---|
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | Secrets Manager (or a password manager for local dev) |
+| `JWT_SECRET`, `SCENARIO_API_KEY`, `HUB_API_KEY`, `NEO4J_PASSWORD`, `SUPER_ADMIN_PASSWORD` | Secrets Manager — generate fresh per environment, don't reuse the local ones |
+| AWS account / region / ECR / CloudFront ids | your infra store |
+
+**Also not in git, and that's correct:**
+- **Twin state** (`nextxr-ontology/data/*.db`) — runtime data. A fresh clone starts with an
+  **empty twin registry**; the 12 twins on your machine are local-only. Expected.
+- `node_modules/`, `.venv/` — `npm ci` / `pip install -r requirements.txt`.
+- **The scenario engine's `simulation_engine.db` IS committed** (39 seeded scenarios), but
+  it is irrelevant on AWS: with `GOALCERT_DATABASE_URL` set, seeds self-register into
+  Postgres from `scenarios/definitions/**` on boot.
+
+> ⚠ The `.env.example` files were stale until now — missing `HIVEMIND_*`, `REMOTE_ORIGINS`,
+> `HUB_API_KEY`, `NXR_DATA_DIR`, `HIVEMIND_BUILDER_STORE`, and pinning a **retired**
+> `CLAUDE_MODEL` and a **wrong** `:8001` agents port. Anyone following the old ones would
+> have reproduced every bug §2 lists. If your teammate cloned before this commit, tell them
+> to re-pull and re-diff their `.env`.
+
+**Teammate's first run (local):**
+```bash
+# per repo: copy the template, fill the secrets, then
+cp hub/backend/.env.example hub/backend/.env      # etc. for all four
+docker compose up -d                              # infra: postgres, redis, neo4j
+cd goalcert-automind && docker compose -f docker-compose.dev.yml up -d db redis backend
+docker compose -f docker-compose.dev.yml exec backend python -m seed.templates   # §8.1
+```
+Then §9.3's browser checks. Note federation does **not** work under `vite dev` — the hub
+must be built (`npm run build`) and served by its backend.
+
+---
+
 ## 1. Ports — canonical, read from each Dockerfile
 
 | Service | **Container port** | Local dev | Health path | Note |
