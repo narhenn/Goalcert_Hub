@@ -76,6 +76,48 @@ async def csrf_guard(request: Request, call_next):
     return await call_next(request)
 
 
+# ── Content-Security-Policy ─────────────────────────────────────────
+#
+# The hub is a Module-Federation HOST: it fetches remoteEntry.js and a stylesheet from each
+# platform's own origin at runtime, and those remotes then call back for their chunks and
+# .glb assets. A default CSP blocks all of that, so the policy MUST name the remote origins
+# — and it must be derived from the SAME env that configures the remotes, or the two drift
+# and federation dies silently in production while working locally.
+#
+# REMOTE_ORIGINS is a comma-separated list of ORIGINS (scheme://host), e.g.
+#   REMOTE_ORIGINS=https://d111.cloudfront.net,https://twin.example.com
+# Leave it unset locally: no CSP header is sent and nothing changes.
+#
+# 'unsafe-inline' for style-src is required — the remotes' 3-D views and the hub's own
+# panels set inline styles. script-src does NOT include 'unsafe-inline'.
+_REMOTE_ORIGINS = [o.strip().rstrip("/") for o in os.environ.get("REMOTE_ORIGINS", "").split(",") if o.strip()]
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    if _REMOTE_ORIGINS:
+        remotes = " ".join(_REMOTE_ORIGINS)
+        resp.headers.setdefault("Content-Security-Policy", "; ".join([
+            "default-src 'self'",
+            f"script-src 'self' {remotes}",
+            f"style-src 'self' 'unsafe-inline' {remotes} https://fonts.googleapis.com https://cdn.jsdelivr.net",
+            "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net",
+            f"img-src 'self' data: blob: {remotes}",
+            # connect-src: remote chunk fetches + the hub's own /api. blob:/data: keep the
+            # GLB loaders working (three.js parses model buffers via blob URLs).
+            f"connect-src 'self' blob: data: {remotes}",
+            f"worker-src 'self' blob:",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "object-src 'none'",
+        ]))
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return resp
+
+
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(gateway.router)
@@ -712,6 +754,47 @@ def health():
         "llm_ready": any(_key(k) for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY")),
         "agents": list(AGENT_PROMPTS.keys()),
     }
+
+
+# ── Health (load balancer target) ───────────────────────────────────
+#
+# MUST be declared BEFORE the SPA catch-all below, and must be able to FAIL.
+#
+# Before this existed, /health and /healthz fell through to the catch-all and returned
+# index.html with a 200 — for any path, under any condition. An ALB/ECS health check
+# pointed there could never go unhealthy: the task could have lost its database entirely
+# and still reported "healthy" forever, so ECS would never replace it. A health check that
+# cannot fail is worse than no health check, because it buys false confidence.
+#
+# So this actually touches the DB. 200 = this task can serve real traffic; 503 = replace it.
+@app.get("/api/health", include_in_schema=True)
+def api_health():
+    from sqlalchemy import text as _text
+
+    from db import SessionLocal
+
+    db_ok, db_err = True, None
+    try:
+        s = SessionLocal()
+        try:
+            s.execute(_text("SELECT 1"))
+        finally:
+            s.close()
+    except Exception as exc:  # noqa: BLE001
+        db_ok, db_err = False, str(exc)[:200]
+
+    body = {
+        "status": "ok" if db_ok else "degraded",
+        "service": "goalcert-hub",
+        "db": {"ok": db_ok, **({"error": db_err} if db_err else {})},
+        # Informational only — a missing LLM key must NOT fail the health check, or one
+        # expired key would roll the whole fleet.
+        "llm": {"anthropic": bool(_key("ANTHROPIC_API_KEY")), "openai": bool(_key("OPENAI_API_KEY"))},
+        # Which upstreams this task believes it can reach (config only, not a live probe —
+        # health must not fan out to four services on every ALB check).
+        "gateway": gateway.gateway_status(),
+    }
+    return JSONResponse(status_code=200 if db_ok else 503, content=body)
 
 
 # ── Serve the built SPA (single-origin production deploy) ───────────
