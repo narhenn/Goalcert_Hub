@@ -51,12 +51,20 @@ SERVICES = {
         "header": os.environ.get("AGENTS_KEY_HEADER", "X-API-Key"),
         "module": "agentic",
     },
+    # The guided Agent Builder (HiveMind's /api/v1/builder facade: templates, create,
+    # tools, guardrails, test, deploy). The federated "Agent Builder" page drives this.
+    #
+    # module is "hivemind", NOT "agentbuilder": the builder is a HiveMind PAGE (nav id
+    # hive-builder, module hivemind), not a separately-sold module. "agentbuilder" is in
+    # neither DEFAULT_ENTITLEMENTS (models.py) nor MODULE_ORDER (registry.jsx), so it can
+    # never be entitled — every call here 403'd "not entitled to agentbuilder" no matter
+    # the user. Gating it on hivemind matches how the nav already groups it.
     "agentbuilder": {
         "base": os.environ.get("AGENTBUILDER_BASE_URL", ""),
         "key": os.environ.get("AGENTBUILDER_API_KEY", ""),
         "prefix": os.environ.get("AGENTBUILDER_PATH_PREFIX", "/api"),
         "header": os.environ.get("AGENTBUILDER_KEY_HEADER", "X-API-Key"),
-        "module": "agentbuilder",
+        "module": "hivemind",
     },
     # HiveMind's per-user app API — what its federated UI calls.
     #
@@ -73,16 +81,20 @@ SERVICES = {
         "header": os.environ.get("HIVEMIND_KEY_HEADER", "X-API-Key"),
         "module": "hivemind",
     },
-    # HiveMind Hive — the team brief engine (7 agents, 10 tools).
-    # Separate service (automind-hive on :8095). The federated UI's Hive page
-    # calls /api/hive/brief, /api/hive/agents, /api/hive/followup etc.
-    "hive": {
-        "base": os.environ.get("HIVE_BASE_URL", ""),
-        "key": os.environ.get("HIVE_API_KEY", ""),
-        "prefix": os.environ.get("HIVE_PATH_PREFIX", ""),
-        "header": os.environ.get("HIVE_KEY_HEADER", "X-API-Key"),
-        "module": "hivemind",
-    },
+    # NOTE — there is deliberately NO "hive" service here.
+    #
+    # /api/hive/* is implemented by the HUB ITSELF (server.py: /api/hive/run, /brief,
+    # /stream, /brand, /health — the AGENT_PROMPTS brief engine). A gateway entry for it
+    # registered `/api/hive/{path:path}` at include time (line ~81 of server.py), which is
+    # BEFORE those routes are defined (~line 279). FastAPI matches in registration order,
+    # so the proxy shadowed the hub's own Hive completely and answered every call with
+    # 503 "hive service not configured" — including /api/hive/health, which is what
+    # services/integration.jsx probes as "Hub LLM Backend". That single shadow is why the
+    # hub reported its LLM disconnected while holding a perfectly good key.
+    #
+    # If a standalone Hive service is ever split out, do NOT re-add it here as "hive" —
+    # give it a distinct segment (e.g. "hiveremote") or move the hub's own routes above
+    # the gateway include first.
 }
 
 # Headers we never forward upstream. `authorization` and `cookie` are stripped on
@@ -92,6 +104,20 @@ SERVICES = {
 _HOP_BY_HOP = {"host", "authorization", "cookie", "content-length", "connection",
                "keep-alive", "proxy-authorization", "te", "trailer",
                "transfer-encoding", "upgrade"}
+
+# Headers the GATEWAY asserts and a client must never be able to supply.
+#
+# These are identity. Downstream services trust them precisely because they can only
+# have come from here, after this gateway authenticated the session — the Scenario
+# Engine scopes every scenario and run to X-Goalcert-Org (its core/tenancy.py), so a
+# client that can set that header picks its own tenant and multi-tenancy is decoration.
+#
+# This is not hypothetical. `fwd_headers` starts as a copy of the CLIENT's headers, and
+# X-Goalcert-Org was only overwritten `if user.org_id`. A super_admin has org_id NULL, so
+# for that user the client's own header sailed straight through: sending
+# `X-Goalcert-Org: <someone-else>` changed which tenant's runs the engine returned.
+# Strip on the way IN, assert on the way OUT — an allow-list of one direction only.
+_CLIENT_MUST_NOT_SEND = {"x-goalcert-org", "x-goalcert-user", "x-goalcert-role"}
 
 router = APIRouter(prefix="/api", tags=["gateway"])
 
@@ -129,14 +155,21 @@ async def _proxy(svc: str, path: str, request: Request, user: User):
 
     # snapshot the identity we forward, so we don't touch the ORM during streaming
     upstream = cfg["base"].rstrip("/") + cfg["prefix"].rstrip("/") + "/" + path
-    fwd_headers = {k: v for k, v in request.headers.items() if k.lower() not in _HOP_BY_HOP}
+    # Drop hop-by-hop headers, the identity headers only WE may assert, and the service
+    # key header (a client must not be able to present its own key when we hold none).
+    _drop = _HOP_BY_HOP | _CLIENT_MUST_NOT_SEND | {cfg["header"].lower()}
+    fwd_headers = {k: v for k, v in request.headers.items() if k.lower() not in _drop}
     if cfg["key"]:
         fwd_headers[cfg["header"]] = cfg["key"]
-    # pass the end-user identity to the service (defence-in-depth; services may log/scope on it)
+    # The end-user identity, asserted from the authenticated session — services scope on
+    # this (the Scenario Engine keys every scenario/run to the org).
     fwd_headers["X-Goalcert-User"] = user.email
     fwd_headers["X-Goalcert-Role"] = user.role
     if user.org_id:
         fwd_headers["X-Goalcert-Org"] = user.org_id
+    # No org (e.g. the platform owner) => send NO org header. Safe now that the inbound
+    # one is stripped above: downstream reads "no tenant context" and shows only shared
+    # data, rather than inheriting whatever the caller claimed.
 
     body = await request.body()
     query = request.url.query

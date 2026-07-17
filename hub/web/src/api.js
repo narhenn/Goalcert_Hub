@@ -149,86 +149,20 @@ const API = {
       post('/api/agents/run', { capability: 'draft-content', context: { sop, domain } }),
   },
 
-  // ── GoalCert Simulation Engine ──
+  // ── GoalCert Scenario Engine ──
+  // The hub no longer calls the engine's data endpoints. The Scenario Engine is a
+  // FEDERATED REMOTE (hub/remotes/ScenarioRemoteHost.jsx): it owns its own API client and
+  // routes every call through this same gateway via window.__SC_API_BASE__='/api/scenario'
+  // and window.__SC_AUTH__=authHeaders. A second client here is how the two drift apart.
+  //
+  // The ~80 lines that used to live here (catalog/list/run/runs/sim/tripwire/studio/jilla)
+  // existed only for the hand-ported modules/simulation + modules/scenario panes, which the
+  // remote replaces and which are now deleted.
+  //
+  // health() stays: it is a HUB-level service probe (same role as twin.health()), not a
+  // data call — it is what proves the gateway reaches the engine.
   scenario: {
     health: () => get('/api/scenario/health'),
-    catalog: {
-      assets: () => get('/api/scenario/catalog/assets'),
-      techniques: () => get('/api/scenario/catalog/techniques'),
-      roles: () => get('/api/scenario/catalog/roles'),
-    },
-    list: () => get('/api/scenario/scenarios'),
-    get: (id) => get(`/api/scenario/scenarios/${id}`),
-    run: (scenarioId, config = {}) => post('/api/scenario/runs', { scenario_id: scenarioId, ...config }),
-    runs: (limit = 20) => get(`/api/scenario/runs?limit=${limit}`),
-    runDetail: (runId) => get(`/api/scenario/runs/${runId}`),
-    runEvents: (runId) => get(`/api/scenario/runs/${runId}/events`),
-    dashboard: () => get('/api/scenario/dashboard'),
-
-    // ── Simulation module (Train with AI) ──
-    // The Dynamic Scenario Graph: run one fault scenario and let the engine expand the
-    // full cause→consequence cascade it triggers. Powers modules/simulation.
-    //
-    // These hit the engine's ROOT paths (/scenarios, /runs/graph) through the gateway,
-    // so the hub must run with SCENARIO_PATH_PREFIX="" — see hub/backend/.env.example.
-    // `difficulty` is an enum and is capitalised ("Medium"); lowercase 422s.
-    // NOTE: there is no "list run graphs" endpoint, by design — `runs` above lists only
-    // RunRecords from POST /runs, never graph runs (a RunGraph is a DAG of RunResults and
-    // is held in the engine's in-memory _GRAPHS). Re-open a past graph by id with graph().
-    sim: {
-      scenarios: (domain) => get(`/api/scenario/scenarios?domain=${encodeURIComponent(domain)}`),
-
-      // `environment` is optional: omit it and the engine uses the scenario's own
-      // recommended_environment. Send one and you override the world — which is how
-      // safeguards work. Strip the backup relay from `resources` and the fault that the
-      // relay would have blocked now fires. No engine change needed; this was always in
-      // the contract, the UI just never used it.
-      runGraph: (scenarioId, config, environment) =>
-        post('/api/scenario/runs/graph', { scenario_id: scenarioId, config, environment }),
-      graph: (rootRunId) => get(`/api/scenario/runs/graph/${rootRunId}`),
-
-      // Author a runnable scenario from a sentence. The ENGINE calls the LLM — the hub
-      // never does, and never holds an LLM key. The model writes the spec; the engine
-      // still computes the cascade deterministically. Returns the registered Scenario,
-      // which is immediately runnable and appears in the scenario list.
-      // 422 = the description couldn't be turned into something this domain can run.
-      author: (domain, prompt) => post('/api/scenario/scenarios/author', { domain, prompt }),
-
-      // Sweep operator readiness and re-run. The engine has no RNG — identical inputs
-      // always produce an identical run — so this is not a probability sample, it is a
-      // SENSITIVITY sweep: at which readiness does this fault stop cascading?
-      // readinessRange of [r, r] pins a single readiness point.
-      sweep: (scenarioId, config, readinessRange, environment, iterations = 1) =>
-        post('/api/scenario/runs/monte-carlo', {
-          scenario_id: scenarioId,
-          config,
-          environment,
-          iterations,
-          readiness_range: readinessRange,
-        }),
-    },
-    guided: () => get('/api/scenario/live/guided'),
-    guidedDetail: (id) => get(`/api/scenario/live/guided/${id}`),
-    // Tripwire
-    tripwire: {
-      scenarios: () => get('/api/scenario/tripwire/scenarios'),
-      startSession: (name, mode, scenarioId) => post('/api/scenario/tripwire/sessions', { learner_name: name, mode, scenario_id: scenarioId }),
-      session: (id) => get(`/api/scenario/tripwire/sessions/${id}`),
-      certificate: (id) => get(`/api/scenario/tripwire/sessions/${id}/certificate`),
-    },
-    // Studio
-    studio: {
-      domains: () => get('/api/scenario/studio/domains'),
-      faults: (domain) => get(`/api/scenario/studio/faults?domain=${domain}`),
-      author: (description, domain) => post('/api/scenario/studio/scenarios/author', { description, domain }),
-      run: (spec) => post('/api/scenario/studio/runs', spec),
-    },
-    // Jilla AI
-    jilla: {
-      event: (data) => post('/api/scenario/jilla/event', data),
-      chat: (data) => post('/api/scenario/jilla/chat', data),
-      hint: (data) => post('/api/scenario/jilla/hint', data),
-    },
   },
 
   // ── GoalCert Agent Builder (HiveMind hub facade: /api/v1/builder) ──

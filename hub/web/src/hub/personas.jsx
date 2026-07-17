@@ -56,7 +56,9 @@ export const PERSONAS = {
     done: '80% content generated, 20% curated',
     stages: ['train', 'simulate', 'improve'],
     platforms: ['scenario', 'agentic', 'hivemind'],
-    nav: ['studio', 'scenario', 'train', 'hivemind', 'hive-builder', 'agents', 'templates', 'loop'],
+    // The full scenario page set: build the failure web → run it → drill operators on it →
+    // report. This persona runs the train/simulate stages, so it gets all four.
+    nav: ['studio', 'scenario', 'simulate', 'train', 'scenario-reports', 'hivemind', 'hive-builder', 'agents', 'templates', 'loop'],
     defaultRoute: 'studio',
   },
   compliance: {
@@ -67,7 +69,10 @@ export const PERSONAS = {
     done: 'Defensible evidence in one click',
     stages: ['deploy'],
     platforms: ['twin', 'scenario'],
-    nav: ['compliance', 'audit', 'loop'],
+    // Scenario Reports carries the certified/not-certified clearance block and the
+    // deterministic run behind it — the evidence chain this persona exists to produce.
+    // They were entitled to the scenario module but had no scenario surface to reach.
+    nav: ['compliance', 'scenario-reports', 'audit', 'loop'],
     defaultRoute: 'compliance',
   },
   coo: {

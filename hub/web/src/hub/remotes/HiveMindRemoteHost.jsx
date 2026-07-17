@@ -18,6 +18,19 @@ if (typeof window !== 'undefined') {
   window.__HM_API_BASE__ = '/api/hivemind'   // data flows through the hub gateway
   window.__HM_AUTH__ = () => authHeaders()    // inject the hub's CSRF header
   window.__HM_HOSTED__ = true                 // suppress its 401 → /login redirect
+
+  // The guided Agent Builder lives on a DIFFERENT upstream surface from the rest of the
+  // app, so it needs its own base. HiveMind's per-user API (__HM_API_BASE__ → :8097/api)
+  // has no /builder routes at all; the builder is implemented by the /api/v1/builder
+  // FACADE, which the gateway exposes at /api/agentbuilder/*.
+  //
+  // Standalone, the page reached it via a vite proxy to a separate service; through the
+  // hub those calls landed on :8097/api/builder/* and 404'd silently — which is why the
+  // builder showed no templates and "Create agent" appeared to do nothing.
+  window.__HM_BUILDER_BASE__ = '/api/agentbuilder'
+
+  // The Hive brief engine is the HUB's own (server.py /api/hive/*), not HiveMind's.
+  window.__HM_HIVE_BASE__ = '/api/hive'
 }
 
 // The remote exposes ONE self-contained component (providers + router + routes).

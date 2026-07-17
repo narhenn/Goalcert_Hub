@@ -315,8 +315,10 @@ function Shell() {
           {['twins', 'dashboard', 'build', 'predict'].includes(route) &&
             <TwinRemoteHost route={route} onNav={go} />}
 
-          {/* ── Scenario Engine — federated remote; build a real FE first (Phase T3) ── */}
-          {['scenario', 'train'].includes(route) &&
+          {/* ── Scenario Engine — federated remote (Phase T3). Builder / Simulation /
+              Training / Reports. The remote takes its domain from the ACTIVE TWIN, so
+              opening an EDM twin lands you on that twin's scenarios. ── */}
+          {['scenario', 'simulate', 'train', 'scenario-reports'].includes(route) &&
             <ScenarioRemoteHost route={route} onNav={go} />}
 
           {/* ── HiveMind — federated remote. The Hive (team brief), Agent Builder,

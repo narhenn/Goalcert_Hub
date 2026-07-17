@@ -84,8 +84,20 @@ export const NAV = [
   // are NOT hub pages at all — the twin's own dashboard renders them from the
   // domain the backend reports, exactly like the Digital Twin platform.
   { id: 'predict', label: 'Prediction', icon: 'ti-chart-histogram', module: 'twin', hidden: true },
-  { id: 'scenario', label: 'Scenario & Faults', icon: 'ti-urgent', module: 'scenario' },
+  // Scenario Engine — federated (ScenarioRemoteHost). Four pages, mapped 1:1 onto the
+  // remote's own routes. The remote also ships Dashboard / War Room / Library / Decision
+  // for its standalone story; those are deliberately not hub nav — the hub has its own
+  // Overview and portfolio surfaces and shouldn't grow a second set inside a remote.
+  //
+  // NOTE the id is 'scenario-reports', not 'reports': 'reports' is already HiveMind's, and
+  // route ids are a flat namespace here — reusing it would make one entry shadow the other
+  // depending on entitlement order.
+  { id: 'scenario', label: 'Scenario Builder', icon: 'ti-urgent', module: 'scenario' },
+  { id: 'simulate', label: 'Simulation', icon: 'ti-activity-heartbeat', module: 'scenario' },
   { id: 'train', label: 'Train with AI', icon: 'ti-school', module: 'scenario' },
+  { id: 'scenario-reports', label: 'Scenario Reports', icon: 'ti-file-analytics', module: 'scenario' },
+  // Hub-native (modules/lnd/ContentStudio.jsx) — authoring surface, not part of the
+  // scenario remote.
   { id: 'studio', label: 'Content Studio', icon: 'ti-wand', module: 'scenario' },
   // HiveMind — federated from HiveMind (HiveMindRemoteHost). The Hive (team brief),
   // Agent Builder, Agents dashboard, and all agentic pages are federated; the AI

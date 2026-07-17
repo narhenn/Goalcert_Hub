@@ -370,17 +370,148 @@ async def run_agent(req: AgentRunRequest):
 
 # ── Run all agents for a full brief (coordination on server) ──────
 
+class HiveCompany(BaseModel):
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    description: Optional[str] = None
+
+
 class HiveBriefRequest(BaseModel):
     brief: str
     agents: list[str]                   # list of role keys to activate
     facility: Optional[str] = None
     domain: Optional[str] = None
     provider: str = "claude"
+    # The federated Hive page posts {brief, company:{name,industry}, agents:[...]}
+    # rather than facility/domain. Accept both and normalise in `_facility`/`_domain`.
+    company: Optional[HiveCompany] = None
+
+    def _facility(self) -> Optional[str]:
+        return self.facility or (self.company.name if self.company else None)
+
+    def _domain(self) -> Optional[str]:
+        return self.domain or (self.company.industry if self.company else None)
+
+
+# Display metadata for the roles in AGENT_PROMPTS.
+#
+# The engine only needs a role KEY, but the Hive page renders a card per specialist and
+# needs a name/tagline/initials/colour to do it. Keeping this beside AGENT_PROMPTS (rather
+# than in the UI) means the roster has ONE source of truth: add a prompt + an entry here
+# and the agent appears in the picker with no frontend change.
+AGENT_META = {
+    "market_research":   ("Maya",  "Market Research",   "#2563eb", ["Curious", "Data-led"],   ["web_search", "draft_document"]),
+    "strategy":          ("Sana",  "Strategy",          "#7c3aed", ["Structured", "Decisive"], ["draft_document"]),
+    "finance_analysis":  ("Farid", "Financial Analysis", "#0d9488", ["Precise", "Sceptical"],  ["calculate", "create_spreadsheet"]),
+    "finance_risk":      ("Rhea",  "Risk & Compliance", "#e11d48", ["Cautious", "Thorough"],  ["calculate", "draft_document"]),
+    "marketing_campaign": ("Milo", "Campaign Planning", "#d97706", ["Creative", "Punchy"],    ["draft_document", "create_email_sequence"]),
+    "sales_pipeline":    ("Priya", "Pipeline & Forecast", "#16a34a", ["Numeric", "Direct"],   ["score_lead", "create_spreadsheet"]),
+    "sales_client":      ("Cai",   "Client Proposals",  "#0891b2", ["Persuasive", "Warm"],    ["draft_document", "create_contact"]),
+    "ceo":               ("Elena", "Executive Synthesis", "#312e81", ["Big-picture", "Blunt"], ["draft_document"]),
+}
+
+
+def _initials(name: str) -> str:
+    parts = [p for p in name.split() if p]
+    return ("".join(p[0] for p in parts[:2]) or name[:2]).upper()
+
+
+@app.get("/api/hive/agents")
+def hive_agents():
+    """The Hive roster, in the shape the Hive page renders.
+
+    The page needs this to show ANY specialists at all — without it the roster is empty
+    and "Run the Hive" stays disabled, which is exactly what the federated Hive page did:
+    it was asking HiveMind's per-user agent list (a different product surface, empty for a
+    new user) because the hub exposed no roster of its own.
+    """
+    out = []
+    for role, (name, tagline, color, traits, tools) in AGENT_META.items():
+        if role not in AGENT_PROMPTS:
+            continue
+        out.append({
+            "id": role, "name": name, "tagline": tagline, "initials": _initials(name),
+            "color": color, "traits": list(traits), "tools": list(tools),
+        })
+    return {"agents": out}
 
 
 @app.post("/api/hive/brief")
 async def run_full_brief(req: HiveBriefRequest):
-    """Run multiple agents with coordination. Returns all deliverables."""
+    """Run multiple agents with coordination, STREAMED as SSE.
+
+    Emits the event vocabulary the Hive page consumes:
+      agent_start {agent_id} → text {agent_id,text} → agent_done {agent_id,tokens,model}
+      … then brief_done {total_tokens,cost}
+
+    The three-phase coordination below is the point and is preserved: independents first,
+    then the agents that need their output as upstream context, then the CEO synthesising
+    everything. Streaming just reports each phase as it lands instead of making the
+    operator stare at a spinner until all of it finishes.
+
+    NOTE run_single() returns each agent's deliverable whole (the engine does not token-
+    stream), so `text` arrives as one event per agent rather than character-by-character.
+    The page appends it either way.
+    """
+    import asyncio
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    roles = [r for r in req.agents if r in AGENT_PROMPTS]
+    facility, domain = req._facility(), req._domain()
+
+    async def sse():
+        results: dict[str, dict] = {}
+        context_parts: list[str] = []
+        total_tokens = 0
+
+        async def phase(names: list[str], upstream: str | None):
+            nonlocal total_tokens
+            names = [n for n in names if n in roles]
+            if not names:
+                return
+            for n in names:
+                yield f"data: {_json.dumps({'type': 'agent_start', 'agent_id': n})}\n\n"
+            done = await asyncio.gather(
+                *[run_single(n, req.brief, upstream, facility, domain, req.provider) for n in names],
+                return_exceptions=True,
+            )
+            for n, r in zip(names, done):
+                if isinstance(r, Exception) or not isinstance(r, dict):
+                    yield f"data: {_json.dumps({'type': 'agent_error', 'agent_id': n, 'message': str(r)})}\n\n"
+                    continue
+                results[n] = r
+                context_parts.append(f"[{r.get('title', n)}]\n{(r.get('content') or '')[:800]}")
+                total_tokens += r.get("tokens_used", 0) or 0
+                yield f"data: {_json.dumps({'type': 'text', 'agent_id': n, 'text': r.get('content', '')})}\n\n"
+                yield f"data: {_json.dumps({'type': 'agent_done', 'agent_id': n, 'tokens': r.get('tokens_used', 0), 'model': r.get('provider', '')})}\n\n"
+
+        try:
+            # Phase 1 — independents.
+            async for ev in phase(["market_research", "finance_analysis", "sales_pipeline"], None):
+                yield ev
+            # Phase 2 — needs phase 1 as upstream context.
+            async for ev in phase(["strategy", "finance_risk", "marketing_campaign", "sales_client"],
+                                  "\n\n".join(context_parts)):
+                yield ev
+            # Phase 3 — the CEO synthesises everything above.
+            async for ev in phase(["ceo"], "\n\n".join(context_parts)):
+                yield ev
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("hive brief failed")
+            yield f"data: {_json.dumps({'type': 'agent_error', 'message': str(exc)})}\n\n"
+
+        yield f"data: {_json.dumps({'type': 'brief_done', 'total_tokens': total_tokens, 'cost': round(total_tokens * 3e-6, 4)})}\n\n"
+
+    return StreamingResponse(sse(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.post("/api/hive/brief-sync")
+async def run_full_brief_sync(req: HiveBriefRequest):
+    """The original non-streaming brief. Kept because /api/hive/brief changed shape to
+    SSE for the Hive page; anything wanting one JSON blob should call this."""
     import asyncio
 
     results = {}

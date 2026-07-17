@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => {
   // HiveMind's FastAPI serves no static files, so its remote comes from its own
   // `vite preview` (:4174) locally; S3/CloudFront on AWS.
   const HIVEMIND_REMOTE = env.VITE_HIVEMIND_REMOTE || 'http://localhost:4174/assets/remoteEntry.js'
+  // The Scenario Engine serves its own built frontend from its FastAPI (:8002), like
+  // NextXR — one process for API + remote. S3/CloudFront on AWS.
+  const SCENARIO_REMOTE = env.VITE_SCENARIO_REMOTE || 'http://127.0.0.1:8002/assets/remoteEntry.js'
 
   return {
     plugins: [
@@ -29,11 +32,19 @@ export default defineConfig(({ mode }) => {
           nextxrTwin: TWIN_REMOTE,
           // consumed by hub/web/src/hub/remotes/HiveMindRemoteHost.jsx
           hivemindAgents: HIVEMIND_REMOTE,
+          // consumed by hub/web/src/hub/remotes/ScenarioRemoteHost.jsx
+          scenarioEngine: SCENARIO_REMOTE,
         },
         // React MUST be a single instance across host+remote or hooks break
         // (that's the only true singleton requirement here). three/@react-three
         // and react-router are used ONLY inside the remote's own tree, so it
         // provides its own copies — the host doesn't share them.
+        //
+        // NOTE: do NOT add `singleton: true` here. @originjs/vite-plugin-federation does
+        // not implement it — the option is commented out in its own type definitions
+        // (types/index.d.ts: `// singleton?: boolean`). It is silently ignored in a .js
+        // config and a type error in a .ts one, so it reads like a fix while doing nothing.
+        // Deduping React is this plugin's default behaviour for a shared name.
         shared: ['react', 'react-dom'],
       }),
     ],
