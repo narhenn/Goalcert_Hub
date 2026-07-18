@@ -626,9 +626,10 @@ These are the joins that make it one product rather than three tabs:
   get a **404**, not a hidden row.
 
 ### 8.6 Known-broken at go-live — say so before a demo
-- **3-D twin panel is blank inside the hub** (React #321 in the twin remote's
-  `@react-three` stack under federation). Standalone renders fine; non-3-D twin surfaces
-  are unaffected. §10.1.
+- ~~**3-D twin panel is blank inside the hub** (React #321 …)~~ **FIXED.** The twin
+  remote now renders itself under its own react-dom root via a `./mount` entry (see
+  §10.1), so no React crosses the federation boundary. Verified in-hub: BimViewer,
+  `useGLTF`, and the procedural machine scene all render, zero #321.
 - **The Hive's follow-up chat 404s** (`/followup` has no hub route). The main brief works.
 
 ---
@@ -680,7 +681,7 @@ curl -s -D- -o /dev/null https://hub.example.com/ | grep -i content-security-pol
 
 | # | Issue | Impact | Fix |
 |---|---|---|---|
-| 1 | **3-D panel blank in hub** — React #321 from the twin remote's `@react-three` under federation; `useGLTF` throws before fetching. (The absolute-`model_url` half **is** fixed: `assetUrl()` rebases it, verified 200 via the gateway.) `singleton: true` is **not** the answer — `@originjs/vite-plugin-federation` doesn't implement it. | 3-D views blank in the hub only | Dedicated work on sharing `react-reconciler` / `@react-three` |
+| 1 | ~~**3-D panel blank in hub** — React #321 …~~ **FIXED.** Root cause: with the component-export model the host's react-dom rendered the twin tree, so R3F's bundled `react-reconciler` bound to a different React copy than the component hooks (`importShared`) → two dispatchers → #321. Sharing `react-reconciler`/`scheduler` did **not** help (the plugin won't rewrite the reconciler's static `react` import). Fix: the twin remote exposes `./mount(el, props)` and renders itself under its **own** react-dom root inside a host `<div>`, sharing **nothing** React-shaped across the boundary. Files: `frontend/src/mount.jsx`, `frontend/vite.config.js` (`shared: []`), hub `TwinRemoteHost.jsx`. Build-time only — no infra/env/hub-config change. | ✅ resolved | — |
 | 2 | **Twin state is SQLite on EFS** | Twin pinned to 1 task; no HA | Port the 5 DBs to RDS |
 | 3 | **Builder store is JSON files on EFS** | HiveMind pinned to 1 task | Move agents into Postgres |
 | 4 | **Neo4j Community can't cluster** | Single writer; restart = brief outage | Neo4j Enterprise / AuraDB Business Critical |
