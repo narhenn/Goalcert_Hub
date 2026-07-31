@@ -117,7 +117,14 @@ _HOP_BY_HOP = {"host", "authorization", "cookie", "content-length", "connection"
 # for that user the client's own header sailed straight through: sending
 # `X-Goalcert-Org: <someone-else>` changed which tenant's runs the engine returned.
 # Strip on the way IN, assert on the way OUT — an allow-list of one direction only.
-_CLIENT_MUST_NOT_SEND = {"x-goalcert-org", "x-goalcert-user", "x-goalcert-role"}
+_CLIENT_MUST_NOT_SEND = {
+    "x-goalcert-org",
+    "x-goalcert-user",
+    "x-goalcert-role",
+    # Downstream may provision a tenant row from this on first sighting, so a
+    # client must not get to choose what that tenant ends up called.
+    "x-goalcert-org-name",
+}
 
 router = APIRouter(prefix="/api", tags=["gateway"])
 
@@ -167,6 +174,12 @@ async def _proxy(svc: str, path: str, request: Request, user: User):
     fwd_headers["X-Goalcert-Role"] = user.role
     if user.org_id:
         fwd_headers["X-Goalcert-Org"] = user.org_id
+        # Display name, so a service provisioning this tenant for the first time
+        # records something readable rather than a bare id. Read here alongside the
+        # rest of the identity snapshot, never mid-stream.
+        org_name = getattr(user.org, "name", None)
+        if org_name:
+            fwd_headers["X-Goalcert-Org-Name"] = org_name
     # No org (e.g. the platform owner) => send NO org header. Safe now that the inbound
     # one is stripped above: downstream reads "no tenant context" and shows only shared
     # data, rather than inheriting whatever the caller claimed.
