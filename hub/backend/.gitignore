@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 *.db
 .env
+
+# uploaded media (local storage driver) — user content, not source
+media/

@@ -1,0 +1,534 @@
+/* nxg.css — the public site's design system (Next XR Group).
+ *
+ * Every rule is scoped under `.nxg` on purpose. The hub dashboard ships its own
+ * light Goalcert theme in styles.css/hub.css and both sheets are loaded on every
+ * page, so an unscoped `.btn`, `header` or `:root` here would bleed straight into
+ * the dashboard. Scoping keeps the two themes fully isolated:
+ *   /  and /pricing  → this sheet
+ *   /dashboard       → styles.css + hub.css, untouched
+ */
+
+.nxg {
+  /* Same palette as the dashboard's light Goalcert theme (styles.css). The NXG
+     layout is kept; only the colours are remapped, so the public site and the
+     hub read as one product. Token names stay put so the rules below are
+     unchanged: --g is now the brand purple (the primary action), not neon green. */
+  --bg: #f7f7fb; --s1: #fff; --s2: #f4f3f9; --s3: #f3effc;
+  --brd: #ebe9f2; --brd2: #ddd9ea;
+  --t1: #16131f; --t2: #6b7280; --t3: #9aa1ad;
+  --g: #6d28d9; --g2: #5b21b6;
+  --c: #2563eb; --c2: #1d4ed8;
+  --a: #d97706; --a2: #b45309;
+  --v: #7c3aed; --v2: #6d28d9;
+  --r: #e11d48; --r2: #be123c;
+  --ok: #16a34a;
+  --grad: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+  --on-g: #fff;
+  --sh-sm: 0 1px 2px rgba(22, 19, 31, .05);
+  --sh: 0 4px 16px rgba(22, 19, 31, .06);
+  --sh-lg: 0 18px 48px rgba(46, 16, 101, .14);
+  --sh-brand: 0 8px 22px rgba(109, 40, 217, .22);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --rad: 12px; --rad-sm: 8px; --rad-lg: 18px;
+
+  position: relative; z-index: 1; min-height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--t1);
+  font-family: var(--sans); font-size: 15px;
+}
+.nxg *, .nxg *::before, .nxg *::after { box-sizing: border-box; margin: 0; padding: 0 }
+.nxg input, .nxg select, .nxg textarea, .nxg button { font-family: inherit }
+
+/* The public routes own the document background + scroll. styles.css pins
+   html/body/#root to height:100% for the fixed-viewport dashboard shell; the
+   marketing pages are long documents, so unpin them here. */
+html[data-site='public'] { scroll-behavior: smooth }
+html[data-site='public'], html[data-site='public'] body, html[data-site='public'] #root {
+  height: auto; min-height: 100%; background: #f7f7fb;
+}
+html[data-site='public'] body { overflow-x: hidden }
+
+/* ── AMBIENT ── */
+.nxg::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(109, 40, 217, .07) 0%, transparent 60%);
+}
+
+/* ── HEADER ── */
+.nxg-hdr {
+  padding: 0 40px; height: 76px; display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--brd); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 200;
+  background: rgba(255, 255, 255, .9);
+}
+.nxg .logo { display: flex; align-items: center; gap: 10px; cursor: pointer }
+.nxg .lm {
+  width: 32px; height: 32px; background: var(--grad); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; color: #fff;
+}
+.nxg .ln { font-weight: 800; font-size: 15px; letter-spacing: .5px }
+.nxg .ln em { color: var(--g); font-style: normal }
+.nxg .hdr-r { display: flex; align-items: center; gap: 24px }
+.nxg .hdr-lk { font-size: 15px; color: var(--t2); text-decoration: none; transition: color .2s; cursor: pointer; background: none; border: none }
+.nxg .hdr-lk:hover { color: var(--t1) }
+.nxg .hdr-lk.on { color: var(--t1); font-weight: 600 }
+.nxg .hdr-ct {
+  font-size: 13.5px; font-weight: 600; padding: 10px 20px; background: var(--g); color: var(--on-g);
+  border-radius: 7px; border: none; cursor: pointer; transition: background .2s;
+}
+.nxg .hdr-ct:hover { background: var(--g2) }
+/* Login — the header's primary action; stays visible at every breakpoint. */
+.nxg .hdr-login {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 700; padding: 10px 20px; background: var(--g); color: var(--on-g);
+  /* Transparent border, not none: .hdr-signin sits beside this with a real 1px
+     border, and without it the outlined button renders 2px taller than the
+     filled one. */
+  border-radius: 7px; border: 1px solid transparent; cursor: pointer;
+  transition: background .2s, transform .2s, box-shadow .2s;
+}
+.nxg .hdr-login svg { width: 16px; height: 16px; flex-shrink: 0 }
+.nxg .hdr-login:hover { background: var(--g2); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(109, 40, 217, .25) }
+
+/* ── HERO ── */
+.nxg .hero { padding: 52px 24px 36px; text-align: center; max-width: 700px; margin: 0 auto }
+.nxg .eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--g); margin-bottom: 14px; font-family: var(--mono);
+}
+.nxg .hero h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 900; line-height: 1.06; letter-spacing: -.02em; margin-bottom: 12px }
+.nxg .hero h1 span {
+  background: linear-gradient(90deg, var(--g), var(--c)); -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent; background-clip: text;
+}
+.nxg .hero p { font-size: 15px; color: var(--t2); line-height: 1.7; max-width: 500px; margin: 0 auto }
+
+/* ── PROGRESS ── */
+.nxg .pgwrap { padding: 0 24px 36px; max-width: 600px; margin: 0 auto }
+.nxg .pgtrack { display: flex; align-items: center }
+.nxg .pgstep { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1; flex-shrink: 0 }
+.nxg .pgdot {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--brd2); background: var(--s1);
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  color: var(--t3); transition: all .35s;
+}
+.nxg .pgdot.done { background: var(--g); border-color: var(--g); color: var(--on-g) }
+.nxg .pgdot.act { background: var(--s3); border-color: var(--g); color: var(--g); box-shadow: 0 0 0 4px rgba(109, 40, 217, .12) }
+.nxg .pglbl {
+  font-size: 10px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--t3);
+  white-space: nowrap; transition: color .3s;
+}
+.nxg .pglbl.act, .nxg .pglbl.done { color: var(--t1) }
+.nxg .pgline { flex: 1; height: 2px; background: var(--brd2); margin-bottom: 18px; transition: background .5s }
+.nxg .pgline.done { background: var(--g) }
+
+/* ── STEPS ── */
+.nxg .swrap { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; width: 100% }
+.nxg .step { animation: nxg-si .36s cubic-bezier(.22, .6, .36, 1) both }
+@keyframes nxg-si { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+
+/* ── FORM CARD ── */
+.nxg .fcard { max-width: 540px; margin: 0 auto; padding: 36px; background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg) }
+.nxg .fcard h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px }
+.nxg .fcard .sub { font-size: 14px; color: var(--t2); margin-bottom: 28px; line-height: 1.6 }
+.nxg .field { margin-bottom: 18px }
+.nxg .field label {
+  display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--t2); margin-bottom: 7px;
+}
+.nxg .field input, .nxg .field select, .nxg .field textarea {
+  width: 100%; padding: 12px 14px; background: var(--bg); border: 1px solid var(--brd2); border-radius: var(--rad-sm);
+  color: var(--t1); font-size: 14px; transition: border-color .2s, box-shadow .2s; outline: none;
+}
+.nxg .field input:focus, .nxg .field select:focus, .nxg .field textarea:focus {
+  border-color: var(--g); box-shadow: 0 0 0 3px rgba(109, 40, 217, .1);
+}
+.nxg .field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239aa1ad' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; cursor: pointer;
+}
+.nxg .field input::placeholder, .nxg .field textarea::placeholder { color: var(--t3) }
+.nxg .field textarea { resize: vertical; min-height: 90px }
+.nxg .field.err input, .nxg .field.err select { border-color: var(--r) }
+.nxg .errmsg { font-size: 11px; color: var(--r); margin-top: 4px }
+.nxg .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px }
+@media (max-width: 500px) { .nxg .g2 { grid-template-columns: 1fr } }
+
+/* ── BUTTONS ── */
+.nxg .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 22px;
+  border-radius: var(--rad-sm); font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+  transition: all .2s; letter-spacing: .1px; text-decoration: none;
+}
+.nxg .btn svg { width: 15px; height: 15px; flex-shrink: 0 }
+.nxg .bp { background: var(--g); color: var(--on-g) }
+.nxg .bp:hover { background: var(--g2); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(109, 40, 217, .25) }
+.nxg .bo { background: transparent; color: var(--t1); border: 1px solid var(--brd2) }
+.nxg .bo:hover { border-color: var(--t2); background: var(--s2) }
+.nxg .bgh { background: transparent; color: var(--t2); padding: 8px 12px; font-size: 13px }
+.nxg .bgh:hover { color: var(--t1) }
+.nxg .bfull { width: 100% }
+.nxg .blg { padding: 15px 28px; font-size: 15px }
+.nxg .btn-row { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap }
+
+/* ── PRODUCT GRID ── */
+.nxg .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(265px, 1fr)); gap: 10px; margin-bottom: 20px }
+.nxg .pcard {
+  padding: 22px; border-radius: var(--rad); border: 1px solid var(--brd); cursor: pointer;
+  transition: all .2s; position: relative; user-select: none; background: var(--s1); text-align: left;
+}
+.nxg .pcard:hover { border-color: var(--brd2); background: var(--s2) }
+.nxg .pcard.selected { background: var(--s2) }
+.nxg .pchk {
+  position: absolute; top: 14px; right: 14px; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--brd2); transition: all .2s; display: flex; align-items: center; justify-content: center;
+}
+.nxg .pcard.selected .pchk { border-color: currentColor; background: currentColor }
+.nxg .pcard.selected .pchk::after { content: '✓'; font-size: 11px; font-weight: 700; color: #fff }
+.nxg .pico { font-size: 28px; margin-bottom: 12px }
+.nxg .pname { font-size: 15px; font-weight: 700; margin-bottom: 3px; color: var(--t1) }
+.nxg .ptag { font-size: 11px; color: var(--t2); margin-bottom: 8px }
+.nxg .pdesc { font-size: 12px; color: var(--t3); line-height: 1.6 }
+.nxg .bnotice {
+  background: linear-gradient(135deg, rgba(217, 119, 6, .08), rgba(124, 58, 237, .08));
+  border: 1px solid rgba(217, 119, 6, .25); border-radius: var(--rad); padding: 18px 20px;
+  display: flex; gap: 14px; align-items: flex-start; margin-bottom: 20px;
+}
+.nxg .bnico { font-size: 22px; flex-shrink: 0; margin-top: 2px }
+.nxg .bntxt h4 { font-size: 14px; font-weight: 700; color: var(--a); margin-bottom: 3px }
+.nxg .bntxt p { font-size: 13px; color: var(--t2); line-height: 1.5 }
+
+/* ── TIER CARDS ── */
+.nxg .tgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(208px, 1fr)); gap: 10px; margin-bottom: 24px }
+.nxg .tcard {
+  border: 1px solid var(--brd); border-radius: var(--rad); padding: 22px 18px 20px;
+  position: relative; background: var(--s1); transition: border-color .2s;
+}
+.nxg .tcard.hot { border-color: var(--a) }
+.nxg .tcard:hover { border-color: var(--brd2); box-shadow: var(--sh) }
+.nxg .tcard[data-action='signup'] { border-top: 2px solid var(--g) }
+.nxg .tcard[data-action='trial'] { border-top: 2px solid var(--a) }
+.nxg .tcard[data-action='enterprise'] { border-top: 2px solid var(--v) }
+
+.nxg .card-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; min-height: 22px }
+.nxg .cbadge {
+  font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+}
+.nxg .cb-popular { background: var(--a); color: #fff }
+.nxg .cb-signup { background: rgba(109, 40, 217, .15); color: var(--g); border: 1px solid rgba(109, 40, 217, .3) }
+.nxg .cb-trial { background: rgba(217, 119, 6, .15); color: var(--a); border: 1px solid rgba(217, 119, 6, .3) }
+.nxg .cb-ep { background: rgba(124, 58, 237, .15); color: var(--v); border: 1px solid rgba(124, 58, 237, .3) }
+
+.nxg .tname { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--t2); margin-bottom: 8px }
+.nxg .tprice { font-size: 28px; font-weight: 900; line-height: 1; letter-spacing: -.02em; margin-bottom: 2px }
+.nxg .tprice sub { font-size: 13px; font-weight: 400; color: var(--t2); letter-spacing: 0 }
+.nxg .tperiod { font-size: 11px; color: var(--t3); margin-bottom: 3px }
+.nxg .tusd { font-family: var(--mono); font-size: 10px; color: var(--t3); margin-bottom: 14px; min-height: 13px }
+.nxg .tscope {
+  font-size: 11px; color: var(--t2); padding: 7px 10px; background: var(--s2);
+  border-radius: 6px; margin-bottom: 14px; line-height: 1.5; border: 1px solid var(--brd);
+}
+.nxg .tfeats { list-style: none; margin-bottom: 18px }
+.nxg .tfeats li {
+  font-size: 12px; color: var(--t2); padding: 5px 0; border-bottom: 1px solid var(--brd);
+  display: flex; gap: 7px; line-height: 1.4; align-items: flex-start;
+}
+.nxg .tfeats li:last-child { border: none }
+/* "included" ticks read as success, not as the brand action colour */
+.nxg .fy { color: var(--ok); flex-shrink: 0; margin-top: 1px }
+.nxg .fp { color: var(--a); flex-shrink: 0; margin-top: 1px }
+.nxg .fn { color: var(--t3); flex-shrink: 0; margin-top: 1px }
+.nxg .tcta-wrap { display: flex; flex-direction: column; gap: 7px }
+.nxg .btn-signup {
+  background: var(--g); color: var(--on-g); width: 100%; padding: 11px; border-radius: 7px;
+  font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all .2s;
+}
+.nxg .btn-signup:hover { background: var(--g2); transform: translateY(-1px) }
+.nxg .btn-trial {
+  background: linear-gradient(135deg, #d97706, #b45309); color: #fff; width: 100%; padding: 11px;
+  border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all .2s;
+}
+.nxg .btn-trial:hover { opacity: .9; transform: translateY(-1px) }
+.nxg .btn-ep {
+  background: linear-gradient(135deg, var(--v), var(--v2)); color: #fff; width: 100%; padding: 11px;
+  border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .2s;
+}
+.nxg .btn-ep:hover { opacity: .9; transform: translateY(-1px) }
+.nxg .btn-sales-sec {
+  background: transparent; border: 1px solid var(--brd2); color: var(--t1);
+  width: 100%; padding: 9px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s;
+}
+.nxg .btn-sales-sec:hover { border-color: var(--t2); background: var(--s2) }
+.nxg .trial-note { text-align: center; font-size: 11px; color: var(--t3); margin-top: 2px }
+
+/* ── PROD CONTEXT ── */
+.nxg .pctx {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 14px 18px;
+  background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad);
+}
+.nxg .pctx .ico { font-size: 24px }
+.nxg .pctx h3 { font-size: 15px; font-weight: 700 }
+.nxg .pctx p { font-size: 12px; color: var(--t2); margin-top: 2px }
+.nxg .pctx-change { margin-left: auto; font-size: 12px; background: none; border: none; cursor: pointer }
+.nxg .billing-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap }
+.nxg .billing-row span { font-size: 13px; color: var(--t2) }
+.nxg .tpill {
+  width: 44px; height: 24px; background: var(--s3); border-radius: 12px; cursor: pointer;
+  position: relative; border: 1px solid var(--brd2); transition: background .2s; flex-shrink: 0; padding: 0;
+}
+.nxg .tpill.on { background: var(--g) }
+.nxg .tpill::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; box-shadow: var(--sh-sm); transition: transform .2s;
+}
+.nxg .tpill.on::after { transform: translateX(20px) }
+.nxg .disc-tag {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; background: rgba(109, 40, 217, .12);
+  color: var(--g); border-radius: 20px; border: 1px solid rgba(109, 40, 217, .2);
+}
+.nxg .istrip {
+  display: flex; align-items: flex-start; gap: 9px; padding: 12px 16px;
+  background: rgba(37, 99, 235, .05); border: 1px solid rgba(37, 99, 235, .15); border-radius: var(--rad-sm);
+  font-size: 12px; color: var(--c); margin-bottom: 20px; line-height: 1.5;
+}
+.nxg .istrip svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; opacity: .8 }
+
+/* ── CHECKOUT ── */
+.nxg .cowrap { display: grid; grid-template-columns: 1fr 330px; gap: 22px; align-items: start }
+@media (max-width: 740px) { .nxg .cowrap { grid-template-columns: 1fr } }
+.nxg .payfcard { padding: 30px; background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg) }
+.nxg .payfcard h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px }
+.nxg .payfcard .sub { font-size: 13px; color: var(--t2); margin-bottom: 22px; line-height: 1.5 }
+.nxg .qrow {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: var(--bg);
+  border: 1px solid var(--brd2); border-radius: var(--rad-sm); margin-bottom: 18px;
+}
+.nxg .qlbl { font-size: 13px; color: var(--t2); flex: 1 }
+.nxg .qctrl { display: flex; align-items: center; gap: 10px }
+.nxg .qbtn {
+  width: 30px; height: 30px; border: 1px solid var(--brd2); border-radius: 6px; background: var(--s2);
+  color: var(--t1); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.nxg .qbtn:hover { border-color: var(--g); color: var(--g) }
+.nxg .qval { font-size: 15px; font-weight: 700; min-width: 28px; text-align: center; font-family: var(--mono) }
+.nxg .paytabs { display: flex; border: 1px solid var(--brd); border-radius: var(--rad-sm); overflow: hidden; margin-bottom: 18px }
+.nxg .paytab {
+  flex: 1; padding: 10px; font-size: 13px; font-weight: 500; cursor: pointer; border: none;
+  background: transparent; color: var(--t2); transition: all .2s; display: flex; align-items: center;
+  justify-content: center; gap: 6px;
+}
+.nxg .paytab.on { background: var(--s3); color: var(--t1) }
+.nxg .cardprev {
+  background: linear-gradient(135deg, #2e1065 0%, #312e81 60%, #1e3a8a 100%); border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px; padding: 18px; margin-bottom: 18px;
+}
+.nxg .chip { width: 30px; height: 22px; background: linear-gradient(135deg, #d4a843, #f0c060); border-radius: 4px; margin-bottom: 18px }
+.nxg .cdots { font-family: var(--mono); font-size: 14px; letter-spacing: 3px; color: rgba(255, 255, 255, .7); margin-bottom: 12px }
+.nxg .cmeta {
+  display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, .45);
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .8px;
+}
+.nxg .ssec {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--t3);
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--brd);
+}
+.nxg .upipanel { text-align: center; padding: 20px 0 }
+.nxg .upiapps { display: flex; justify-content: center; gap: 12px; margin: 14px 0 }
+.nxg .upiapp {
+  display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer;
+  padding: 10px 12px; border: 1px solid var(--brd); border-radius: var(--rad-sm); transition: all .2s;
+  flex: 1; max-width: 78px; background: transparent;
+}
+.nxg .upiapp:hover, .nxg .upiapp.on { border-color: var(--g); background: rgba(109, 40, 217, .05) }
+.nxg .upiapp-ic { font-size: 22px }
+.nxg .upiapp-nm { font-size: 10px; color: var(--t2) }
+.nxg .terms { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0; font-size: 12px; color: var(--t2); line-height: 1.5 }
+.nxg .terms input { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; accent-color: var(--g); cursor: pointer }
+.nxg .tlink { color: var(--g); cursor: pointer; text-decoration: underline }
+.nxg .ordsum { padding: 22px; background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg); position: sticky; top: 76px }
+.nxg .ordsum h3 { font-size: 14px; font-weight: 700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--brd) }
+.nxg .orl { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 12px; margin-bottom: 10px }
+.nxg .orll { color: var(--t2); flex: 1; line-height: 1.4 }
+.nxg .orlv { font-weight: 600; font-family: var(--mono); flex-shrink: 0 }
+.nxg .ordiv { height: 1px; background: var(--brd); margin: 12px 0 }
+.nxg .ortot { display: flex; justify-content: space-between; align-items: center }
+.nxg .ortotl { font-size: 13px; font-weight: 700 }
+.nxg .ortotv { font-size: 21px; font-weight: 900; font-family: var(--mono); color: var(--g) }
+.nxg .orper { font-size: 10px; color: var(--t3); text-align: right; margin-top: 2px }
+.nxg .orbadges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--brd) }
+.nxg .obg { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 3px }
+.nxg .obg-g { background: rgba(22, 163, 74, .1); color: var(--ok); border: 1px solid rgba(22, 163, 74, .2) }
+.nxg .obg-m { background: var(--s2); color: var(--t2); border: 1px solid var(--brd) }
+
+/* ── SALES FORM ── */
+.nxg .scard { max-width: 580px; margin: 0 auto; padding: 34px; background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg) }
+.nxg .scard .sico { font-size: 36px; margin-bottom: 14px }
+.nxg .scard h2 { font-size: 21px; font-weight: 700; margin-bottom: 5px }
+.nxg .scard .sub { font-size: 14px; color: var(--t2); margin-bottom: 26px; line-height: 1.6 }
+.nxg .pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 22px }
+.nxg .ppill { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid }
+
+/* ── TRIAL FORM ── */
+.nxg .trial-box {
+  background: rgba(217, 119, 6, .06); border: 1px solid rgba(217, 119, 6, .2); border-radius: var(--rad);
+  padding: 16px 18px; margin-bottom: 22px;
+}
+.nxg .trial-box h4 { font-size: 13px; font-weight: 700; color: var(--a); margin-bottom: 4px }
+.nxg .trial-box p { font-size: 12px; color: var(--t2); line-height: 1.5 }
+.nxg .trial-feats { list-style: none; margin-top: 10px }
+.nxg .trial-feats li { font-size: 12px; color: var(--t2); padding: 3px 0; display: flex; gap: 7px }
+
+/* ── SUCCESS ── */
+.nxg .sucwrap { max-width: 560px; margin: 0 auto; text-align: center; padding: 36px 20px }
+.nxg .sucico {
+  width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 22px; display: flex; align-items: center;
+  justify-content: center; font-size: 36px; animation: nxg-pop .5s cubic-bezier(.22, 2, .44, 1) .1s both;
+}
+@keyframes nxg-pop { from { opacity: 0; transform: scale(.4) } to { opacity: 1; transform: scale(1) } }
+.nxg .sucwrap h2 { font-size: 27px; font-weight: 800; margin-bottom: 10px; letter-spacing: -.01em }
+.nxg .sucwrap > p { font-size: 15px; color: var(--t2); line-height: 1.7; margin: 0 auto 22px; max-width: 440px }
+.nxg .sucstp { background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad); padding: 22px; text-align: left; margin-bottom: 26px }
+.nxg .sucstp h4 {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--t2);
+  margin-bottom: 14px; font-family: var(--mono);
+}
+.nxg .nxst { display: flex; gap: 13px; padding: 9px 0; border-bottom: 1px solid var(--brd) }
+.nxg .nxst:last-child { border: none }
+.nxg .nxnum {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--s3); border: 1px solid var(--brd2);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.nxg .nxtxt { font-size: 12px; color: var(--t2); line-height: 1.5 }
+.nxg .nxtxt strong { color: var(--t1); display: block; margin-bottom: 1px }
+.nxg .refbox {
+  background: var(--bg); border: 1px solid var(--brd2); border-radius: var(--rad-sm);
+  padding: 12px 16px; margin-bottom: 22px; font-family: var(--mono); font-size: 13px; color: var(--g);
+}
+.nxg .refl { font-size: 10px; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; font-family: var(--sans) }
+
+/* ── LOADER ── */
+.nxg-loader {
+  position: fixed; inset: 0; background: rgba(247, 247, 251, .87); backdrop-filter: blur(8px); z-index: 500;
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  font-family: 'Inter', sans-serif;
+}
+.nxg-loader .spin {
+  width: 38px; height: 38px; border: 3px solid var(--brd2); border-top-color: #6d28d9;
+  border-radius: 50%; animation: nxg-sp .8s linear infinite;
+}
+@keyframes nxg-sp { to { transform: rotate(360deg) } }
+.nxg-loader .loadmsg { font-size: 14px; color: #6b7280 }
+
+/* ── LANDING: product listing + plan-anatomy strip ── */
+.nxg .lwrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; width: 100% }
+.nxg .lsec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 8px 0 18px; flex-wrap: wrap }
+.nxg .lsec-head h2 { font-size: 21px; font-weight: 800; letter-spacing: -.01em }
+.nxg .lsec-head p { font-size: 13px; color: var(--t2); margin-top: 3px }
+.nxg .lgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 12px; margin-bottom: 44px }
+.nxg .lcard {
+  background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg); padding: 24px;
+  display: flex; flex-direction: column; gap: 12px; text-align: left; cursor: pointer;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.nxg .lcard:hover { background: var(--s2); transform: translateY(-2px) }
+.nxg .lcard-top { display: flex; align-items: flex-start; gap: 13px }
+.nxg .lcard-ico {
+  width: 46px; height: 46px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0; border: 1px solid var(--brd2);
+}
+.nxg .lcard h3 { font-size: 16px; font-weight: 700; letter-spacing: -.01em }
+.nxg .lcard-tag { font-size: 11px; color: var(--t2); margin-top: 2px; line-height: 1.4 }
+.nxg .lcard-desc { font-size: 12.5px; color: var(--t3); line-height: 1.65; flex: 1 }
+.nxg .lcard-tiers { display: flex; flex-wrap: wrap; gap: 5px }
+.nxg .ltier {
+  font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 20px;
+  background: var(--s2); border: 1px solid var(--brd); color: var(--t2);
+}
+.nxg .lcard-foot {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px;
+  padding-top: 14px; border-top: 1px solid var(--brd);
+}
+.nxg .lfrom { font-size: 10px; color: var(--t3); text-transform: uppercase; letter-spacing: 1px }
+/* The product listing is country-agnostic: rates come from the catalogue per
+   country, so the card states how it is priced and defers the number to the
+   plans page, where the country selector lives. */
+.nxg .lunit { font-size: 13px; font-weight: 600; color: var(--t2); line-height: 1.3; margin-top: 3px }
+.nxg .lprice { font-size: 22px; font-weight: 900; letter-spacing: -.02em; line-height: 1.1 }
+.nxg .lprice small { font-size: 11px; font-weight: 400; color: var(--t2); letter-spacing: 0 }
+.nxg .lcta { font-size: 12px; font-weight: 700; padding: 9px 15px; border-radius: 7px; border: none; cursor: pointer; white-space: nowrap; transition: all .2s }
+.nxg .lcta:hover { transform: translateY(-1px) }
+
+/* Loading / error / empty for the microservice listing. The page has no
+   hardcoded catalogue behind it, so these are the only thing between a failed
+   fetch and a blank page. */
+.nxg .lstate {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  padding: 40px 20px; margin-bottom: 24px; font-size: 14px; color: var(--t2);
+  background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg);
+}
+.nxg .lstate strong { font-size: 16px; font-weight: 700; color: var(--t1) }
+.nxg .lstate .btn { margin-top: 6px }
+.nxg .lstate-err { border-color: rgba(225, 29, 72, .28); background: rgba(225, 29, 72, .05) }
+
+.nxg .lhow { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 40px }
+.nxg .lhow-c { background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad); padding: 20px; border-top: 2px solid }
+.nxg .lhow-c h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px }
+.nxg .lhow-c p { font-size: 12px; color: var(--t2); line-height: 1.6 }
+.nxg .lcloser { text-align: center; padding: 40px 20px; background: var(--s1); border: 1px solid var(--brd); border-radius: var(--rad-lg) }
+.nxg .lcloser h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.01em }
+.nxg .lcloser p { font-size: 14px; color: var(--t2); margin: 0 auto 20px; max-width: 460px; line-height: 1.7 }
+.nxg .lcloser-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap }
+
+/* ── FOOTER ── */
+.nxg-foot {
+  margin-top: auto; border-top: 1px solid var(--brd); padding: 22px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  font-size: 12px; color: var(--t3);
+}
+.nxg-foot .ffl { display: flex; gap: 18px; flex-wrap: wrap }
+.nxg-foot button { background: none; border: none; color: var(--t3); font-size: 12px; cursor: pointer; transition: color .2s }
+.nxg-foot button:hover { color: var(--t1) }
+
+@media (max-width: 620px) {
+  .nxg .tgrid { grid-template-columns: 1fr 1fr }
+  .nxg .pgrid { grid-template-columns: 1fr 1fr }
+  .nxg .fcard, .nxg .scard, .nxg .payfcard { padding: 20px }
+  .nxg .swrap, .nxg .lwrap { padding: 0 12px 60px }
+  /* Taller than before, but not the full desktop 76px — on a phone the header
+     is pure overhead above the fold. */
+  .nxg-hdr { padding: 0 16px; height: 64px }
+  .nxg .hdr-r .hdr-lk { display: none }
+}
+@media (max-width: 420px) {
+  .nxg .tgrid, .nxg .pgrid { grid-template-columns: 1fr }
+}
+
+/* ── LIGHT-THEME ELEVATION ────────────────────────────────────────────────
+   The original NXG sheet separated surfaces with luminance: near-black page,
+   lighter cards. On the light Goalcert palette every surface is close to white,
+   so a 1px border alone reads flat — depth comes from shadow instead, matching
+   the dashboard's --shadow / --shadow-lg scale in styles.css. */
+.nxg .fcard, .nxg .payfcard, .nxg .ordsum, .nxg .scard, .nxg .lcloser { box-shadow: var(--sh) }
+.nxg .pcard, .nxg .tcard, .nxg .lcard, .nxg .lhow-c { box-shadow: var(--sh-sm) }
+.nxg .pcard:hover, .nxg .lcard:hover { box-shadow: var(--sh) }
+.nxg .tcard.hot { box-shadow: var(--sh-lg) }
+.nxg .lcta:hover { box-shadow: var(--sh) }
+.nxg .hdr-login:hover { box-shadow: var(--sh-brand) }
+.nxg .bp:hover { box-shadow: var(--sh-brand) }
+
+/* The pricing toggle's off-state track needs to be visible on a white card. */
+.nxg .tpill { background: var(--brd2) }
+.nxg .tpill.on { background: var(--g) }
+
+/* Header lockup. The <Logo> component from lib.jsx is shared with the admin
+   shell; these rules only bind its colours to the public palette (identical
+   values today, but the two sheets are free to diverge) and shrink it on a
+   phone. Everything else — glyph aspect, name scale — comes from styles.css. */
+.nxg .brand-wordmark { color: var(--t1) }
+.nxg .brand-wordmark em { color: var(--g) }
+@media (max-width: 620px) {
+  .nxg .brand-mark { height: 28px !important }
+  .nxg .brand-wordmark { font-size: 15px !important }
+}

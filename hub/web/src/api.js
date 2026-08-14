@@ -43,6 +43,94 @@ const API = {
       post('/api/auth/change-password', { current_password, new_password }),
   },
 
+  // ── SSO into the satellite LMS applications ──
+  // apps()   → which apps this user's role may open (drives the launcher buttons)
+  // ticket() → a one-shot, ~60s, audience-bound handoff ticket. Use openSsoApp()
+  //            below rather than calling this directly: the ticket must be POSTed,
+  //            not put in a URL.
+  sso: {
+    apps: () => get('/api/sso/apps'),
+    ticket: (app, target) => post('/api/sso/ticket', { app, target }),
+  },
+
+  // ── The signed-in user's own access surface ──
+  // One call returns identity + permission codes + sidebar tree + dashboard
+  // layout. The shell renders this; it decides nothing locally.
+  me: {
+    bootstrap: () => get('/api/me/bootstrap'),
+    permissions: () => get('/api/me/permissions'),
+  },
+
+  // ── RBAC administration (permission-gated server-side) ──
+  rbac: {
+    roles: (orgId) => get(`/api/rbac/roles${orgId ? `?org_id=${orgId}` : ''}`),
+    createRole: (body) => post('/api/rbac/roles', body),
+    updateRole: (id, body) => patch(`/api/rbac/roles/${id}`, body),
+    deleteRole: (id) => del(`/api/rbac/roles/${id}`),
+    permissions: () => get('/api/rbac/permissions'),
+    userRoles: (userId) => get(`/api/rbac/users/${userId}/roles`),
+    setUserRoles: (userId, roleIds) => put(`/api/rbac/users/${userId}/roles`, { role_ids: roleIds }),
+    menus: () => get('/api/rbac/menus'),
+    updateMenu: (id, body) => patch(`/api/rbac/menus/${id}`, body),
+    modules: () => get('/api/rbac/modules'),
+  },
+
+  // ── Catalogue, pricing, entitlement and money ──
+  // public.*  is unauthenticated (the marketing site)
+  // store.*   is the signed-in tenant's marketplace
+  // platform.* is the owner's console
+  public: {
+    catalog: (country = 'IN') => get(`/api/public/catalog?country=${country}`),
+    enquiry: (body) => post('/api/public/enquiries', body),
+  },
+  store: {
+    catalog: (country = 'IN') => get(`/api/store/catalog?country=${country}`),
+    subscriptions: () => get('/api/store/subscriptions'),
+  },
+  platform: {
+    // multipart — postForm sets no Content-Type so the browser adds the boundary
+    upload: (formData) => postForm('/api/platform/uploads', formData),
+    storageSettings: () => get('/api/platform/settings/storage'),
+    updateStorage: (body) => patch('/api/platform/settings/storage', body),
+    smtpSettings: () => get('/api/platform/settings/smtp'),
+    updateSmtp: (body) => patch('/api/platform/settings/smtp', body),
+    testSmtp: (to) => post('/api/platform/settings/smtp/test', { to }),
+    // Cross-tenant user directory (searchable + paginated), distinct from
+    // admin.users() which is scoped to the caller's own organisation.
+    users: ({ q = '', orgId = '', limit = 25, offset = 0 } = {}) => {
+      const p = new URLSearchParams({ limit, offset })
+      if (q) p.set('q', q)
+      if (orgId) p.set('org_id', orgId)
+      return get(`/api/platform/users?${p}`)
+    },
+    modules: () => get('/api/platform/modules'),
+    createModule: (body) => post('/api/platform/modules', body),
+    updateModule: (id, body) => patch(`/api/platform/modules/${id}`, body),
+    deleteModule: (id) => del(`/api/platform/modules/${id}`),
+    plans: (moduleId) => get(`/api/platform/plans${moduleId ? `?module_id=${moduleId}` : ''}`),
+    createPlan: (body) => post('/api/platform/plans', body),
+    updatePlan: (id, body) => patch(`/api/platform/plans/${id}`, body),
+    deletePlan: (id) => del(`/api/platform/plans/${id}`),
+    gateways: () => get('/api/platform/gateways'),
+    updateGateway: (code, body) => patch(`/api/platform/gateways/${code}`, body),
+    transactions: (limit = 50, offset = 0) =>
+      get(`/api/platform/transactions?limit=${limit}&offset=${offset}`),
+    stats: () => get('/api/platform/stats'),
+    enquiries: (status) => get(`/api/platform/enquiries${status ? `?status=${status}` : ''}`),
+    updateEnquiry: (id, body) => patch(`/api/platform/enquiries/${id}`, body),
+    deleteEnquiry: (id) => del(`/api/platform/enquiries/${id}`),
+    updateSubscription: (orgId, moduleCode, body) => patch(`/api/platform/subscriptions/${encodeURIComponent(orgId)}/${encodeURIComponent(moduleCode)}`, body),
+    grantSubscription: (body) => post('/api/platform/subscriptions', body),
+    subscriptions: (orgId) => get(`/api/platform/subscriptions${orgId ? `?org_id=${orgId}` : ''}`),
+    editSubscription: (id, body) => patch(`/api/platform/subscriptions/${id}`, body),
+    cancelSubscription: (id) => del(`/api/platform/subscriptions/${id}`),
+    company: (orgId) => get(`/api/platform/companies/${orgId}`),
+    // Slug confirmation is required server-side — deleting a tenant cascades
+    // to its users, roles and subscriptions.
+    deleteCompany: (orgId, slug) =>
+      del(`/api/platform/companies/${orgId}?confirm=${encodeURIComponent(slug)}`),
+  },
+
   // ── Admin (super_admin + org admin) ──
   admin: {
     orgs: () => get('/api/admin/orgs'),
@@ -263,6 +351,65 @@ const API = {
     )
     return results
   },
+}
+
+// ── SSO launcher ──
+//
+// Opens a satellite app (GoalCert LMS / VR LMS) with the user already signed in.
+//
+// The ticket is POSTed through a hidden form rather than appended to the URL, so
+// it never reaches the address bar, the browser history, a Referer header or an
+// access log. It is single-use and expires in about a minute either way, but the
+// cheapest place to not leak a credential is to not put it in a URL.
+//
+// Call this DIRECTLY from the click handler. The popup is opened synchronously
+// (before the await) because a window.open() that happens after an async hop is
+// blocked by every browser's popup blocker.
+export async function openSsoApp(app, { target, newTab = true } = {}) {
+  // Opened WITHOUT the "noopener" feature string on purpose. That feature makes
+  // window.open return null by specification, and this flow needs the handle:
+  // the ticket is delivered by a form POST aimed at the new window's name, so
+  // losing the handle means losing the tab. The protection noopener buys is
+  // restored on the next line by severing the back-reference by hand, which
+  // survives the cross-origin navigation the form triggers.
+  const win = newTab ? window.open('', '_blank') : null
+
+  if (newTab && !win) {
+    throw new Error('Your browser blocked the pop-up. Please allow pop-ups for this site.')
+  }
+  if (win) {
+    try { win.opener = null } catch { /* already detached */ }
+  }
+
+  let ticket
+  try {
+    ticket = await API.sso.ticket(app, target)
+  } catch (e) {
+    if (win) win.close()
+    throw e
+  }
+
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = ticket.url
+  form.style.display = 'none'
+  if (newTab) {
+    form.target = '_gc_sso_' + app
+    if (win) win.name = form.target
+  }
+
+  const field = document.createElement('input')
+  field.type = 'hidden'
+  field.name = 'token'
+  field.value = ticket.token
+  form.appendChild(field)
+
+  document.body.appendChild(form)
+  form.submit()
+  // The token lives in the DOM only for the instant it takes to submit.
+  form.remove()
+
+  return ticket
 }
 
 // ── HTTP helpers ──

@@ -1,19 +1,33 @@
 // lib.jsx — shared brand, helpers, signal metadata, and the twin-domain registry.
 import React from 'react'
+// The Goalcert glyph. One file for every surface: the artwork is a purple→blue
+// gradient with a transparent ground, so it carries itself on the light shell
+// and the dark theme alike — no per-theme variant to keep in sync.
+import goalcertMark from './assets/goalcert-mark.png'
 
-// Goalcert logo mark (from the demo): ring + bars in a purple→blue gradient.
-export function Logo({ size = 32 }) {
+/**
+ * The Goalcert Hub lockup: glyph + name. Used by the admin shell, the sign-in
+ * card and the public site, so the brand is defined in exactly one place.
+ *
+ * The name is TEXT, not artwork. The supplied lockup raster is 56px wide —
+ * it would be soft at header size and worse on a retina panel — so only the
+ * high-resolution glyph is an image, and "Goalcert Hub" is set in the display
+ * face. That also means it recolours with the theme for free.
+ *
+ * `size` is the rendered HEIGHT of the glyph; the name scales with it so the
+ * lockup keeps its proportions from the 28px topbar to the 44px boot splash.
+ * Pass `name={false}` where the glyph alone is wanted.
+ */
+export function Logo({ size = 32, name = true, className = '' }) {
   return (
-    <span className="brand-mark" style={{ width: size, height: size }}
-      dangerouslySetInnerHTML={{ __html:
-        `<svg viewBox="0 0 120 120" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs><linearGradient id="gcg" x1="14" y1="14" x2="106" y2="106" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#7c3aed"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
-          <circle cx="60" cy="62" r="33" stroke="url(#gcg)" stroke-width="13" fill="none"/>
-          <rect x="53" y="11" width="14" height="100" rx="3" fill="url(#gcg)"/>
-          <rect x="44" y="11" width="32" height="9" rx="3" fill="url(#gcg)"/>
-          <rect x="44" y="102" width="32" height="9" rx="3" fill="url(#gcg)"/>
-        </svg>` }} />
+    <span className={`brand-mark ${className}`} style={{ height: size }}>
+      <img className="brand-glyph" src={goalcertMark} alt="Goalcert Hub" height={size} />
+      {name && (
+        <span className="brand-wordmark" style={{ fontSize: Math.round(size * 0.54) }}>
+          Goalcert <em>Hub</em>
+        </span>
+      )}
+    </span>
   )
 }
 

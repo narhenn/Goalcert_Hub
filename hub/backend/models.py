@@ -18,6 +18,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import Base
 
+# The access-control tables live in their own module but must be registered on
+# the same Base, or Alembic autogenerate would propose dropping all of them.
+# Imported for the side effect; the names are used via string refs below.
+import rbac_models  # noqa: E402,F401  (must follow `Base`, must precede mappers)
+import commerce_models  # noqa: E402,F401  (catalogue, pricing, subscriptions, money)
+import settings_models  # noqa: E402,F401  (SMTP, storage and other platform config)
+from rbac_models import (LEVEL_COMPANY, LEVEL_PLATFORM, Menu, Module,  # noqa: E402,F401
+                         Permission, PermissionGroup, Role, RolePermission,
+                         UserRole)
+
 # ── Role model ────────────────────────────────────────────────────────
 # super_admin  — platform owner: manages orgs, admins, entitlements (cross-org)
 # admin        — org admin (HR/IT): manages users + roles within their org
@@ -82,6 +92,9 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True, nullable=False)
+    # Optional short login handle. Sign-in accepts either this or the email, so
+    # operator accounts ("admin") don't need a mailbox behind them.
+    username: Mapped[str | None] = mapped_column(String(64), unique=True, index=True, nullable=True)
     full_name: Mapped[str] = mapped_column(String(160), default="")
     password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(24), nullable=False)
@@ -95,10 +108,20 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # RBAC grants. selectin so resolving a user's rights is 2 queries, never N+1.
+    role_links: Mapped[list["UserRole"]] = relationship(  # noqa: F821 (rbac_models)
+        "UserRole", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def roles(self) -> list:
+        """The Role rows this user holds, newest grant model — not the legacy string."""
+        return [link.role for link in self.role_links if link.role]
+
     def to_public(self) -> dict:
         return {
             "id": self.id,
             "email": self.email,
+            "username": self.username,
             "fullName": self.full_name,
             "role": self.role,
             "status": self.status,
