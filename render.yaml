@@ -6,9 +6,7 @@ services:
     plan: free
     rootDir: hub/backend
     buildCommand: pip install -r requirements.txt
-    # Migrations run before the app boots, so a bad migration fails the deploy
-    # loudly instead of half-starting the service.
-    startCommand: alembic upgrade head && uvicorn server:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
@@ -23,9 +21,6 @@ services:
       # Postgres (Render database, schema "hub" — automind owns "public")
       - key: DATABASE_URL
         sync: false
-      # startCommand already migrated; the app only verifies it is at head.
-      - key: AUTO_MIGRATE
-        value: "0"
       # ── Secure gateway to the 3 platforms ──
       - key: TWIN_BASE_URL
         value: "https://goalcert-nextxr.onrender.com"
@@ -47,26 +42,6 @@ services:
         value: "https://goalcert-automind.onrender.com"
       - key: AGENTBUILDER_PATH_PREFIX
         value: "/api/v1/builder"
-
-      # Payment gateways. Set these in the Render dashboard — they seed the
-      # gateway config on first boot and are then managed from Super Admin →
-      # Payments, which never overwrites a key that is already stored.
-      - key: RAZORPAY_KEY_ID
-        sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
-      - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false
-      - key: STRIPE_PUBLISHABLE_KEY
-        sync: false
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
-      - key: PAYPAL_CLIENT_ID
-        sync: false
-      - key: PAYPAL_CLIENT_SECRET
-        sync: false
 
   # Hub Frontend (React static site with API proxy)
   - type: web

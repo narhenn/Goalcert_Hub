@@ -49,7 +49,6 @@ Cross-platform wiring (set once at deploy):
 ```bash
 cd hub/web && npm ci && npm run build       # produces hub/web/dist
 cd ../backend && pip install -r requirements.txt
-python manage.py migrate                    # apply DB migrations (alembic upgrade head)
 uvicorn server:app --host 0.0.0.0 --port 8090
 ```
 - Serves the SPA itself when `hub/web/dist` exists → **one service, one origin,
@@ -58,12 +57,6 @@ uvicorn server:app --host 0.0.0.0 --port 8090
   one LLM key (any of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`
   — powers HiveMind), and the four platform URLs.
 - DB: SQLite file by default; set `DATABASE_URL` for RDS Postgres.
-- Schema is owned by Alembic — see `hub/backend/migrations/README.md`. Changing
-  a model means committing a migration alongside it
-  (`python manage.py makemigrations -m "..."`). On deploy, `render.yaml` runs
-  `alembic upgrade head` before uvicorn and sets `AUTO_MIGRATE=0`, so a bad
-  migration fails the deploy instead of half-starting the service. Locally
-  `AUTO_MIGRATE` defaults to `1` and the server migrates itself on startup.
 
 ### 2. NextXR Digital Twin (`Next XR/nextxr-ontology-v3`)
 ```bash
@@ -98,35 +91,6 @@ uvicorn app.main:app --host 0.0.0.0 --port 8001
   stays JWT-guarded. In production, restrict ingress to these services so only
   the hub can reach them (security-group / private subnet), or front them with
   an API key the hub sends via `AGENTS_API_KEY` / `AGENTBUILDER_API_KEY`.
-
-## Payment gateways
-
-Credentials are set once in the environment and managed thereafter in the UI.
-Set these on the hub service (Render dashboard, or `hub/backend/.env` locally —
-never in the repo; `.env` is gitignored):
-
-| gateway | variables |
-|---|---|
-| Razorpay | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` |
-| Stripe | `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
-| PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` |
-
-On boot — and on every load of **Super Admin → Payments** — the hub copies each
-value into that gateway's stored config **only while the field is still blank**.
-So:
-
-- A gateway that receives its first credential this way switches itself on, and
-  picks test vs live from the key prefix (`rzp_test_` / `sk_test_`).
-- After that the admin panel is the source of truth. Rotate a key there and a
-  stale value still sitting in the environment can never overwrite it.
-- A gateway an admin switched off stays off across restarts.
-
-Values are write-only from the browser's side: `GET /api/platform/gateways`
-returns *which* keys are set, never what they are.
-
-Charge processing and webhook receipt are not implemented yet — the ledger under
-the Transactions tab is filled by `POST /api/platform/subscriptions`, which is
-the seam where a real gateway callback will land.
 
 ## Health endpoints (what the hub probes)
 

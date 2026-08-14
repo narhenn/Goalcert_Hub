@@ -77,20 +77,6 @@ def create_org(body: OrgCreate, actor: User = Depends(require_super_admin),
 
     db.commit()
     db.refresh(org)
-
-    # A new tenant gets its own copy of every shipped role immediately, and its
-    # bootstrap admin is granted company_admin — otherwise the account exists
-    # but can do nothing, since authorisation reads user_roles, not users.role.
-    from rbac_models import Role, UserRole
-    from rbac_seed import provision_org_roles
-    org_roles = provision_org_roles(db, org)
-    if created_admin:
-        admin_role = org_roles.get("company_admin")
-        if admin_role:
-            db.add(UserRole(user_id=created_admin.id, role_id=admin_role.id,
-                            org_id=org.id, assigned_by=actor.id))
-    db.commit()
-
     _log(db, actor, "org_create", f"Created org {org.name}"
          + (f" + admin {created_admin.email}" if created_admin else ""))
     return {"org": org.to_public(),
@@ -162,18 +148,6 @@ def create_user(body: UserCreate, actor: User = Depends(require_admin),
         org_id=org_id, created_by=actor.id,
     )
     db.add(user)
-    db.flush()
-
-    # Grant the real role row. The legacy `role` string stays in sync for the
-    # persona UI, but user_roles is what authorisation actually reads.
-    from rbac_models import Role, UserRole
-    from rbac_seed import LEGACY_ROLE_MAP
-    code = LEGACY_ROLE_MAP.get(body.role, body.role)
-    role_row = db.query(Role).filter_by(org_id=org_id, code=code).first()
-    if role_row:
-        db.add(UserRole(user_id=user.id, role_id=role_row.id,
-                        org_id=org_id, assigned_by=actor.id))
-
     db.commit()
     db.refresh(user)
     _log(db, actor, "user_create", f"Created {email} as {body.role}")

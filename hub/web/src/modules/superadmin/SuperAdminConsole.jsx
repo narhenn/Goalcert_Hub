@@ -9,7 +9,6 @@ import { MODULE_ORDER, MODULES } from '../../hub/registry.jsx'
 import { PERSONA_ORDER, PERSONAS } from '../../hub/personas.jsx'
 import { SERVICES, useIntegration } from '../../services/integration.jsx'
 import API from '../../api.js'
-import UsersModal from './Users.jsx'
 
 const POLICY_MODULES = ['twin', 'scenario', 'agentic']
 
@@ -22,7 +21,6 @@ export default function SuperAdminConsole() {
   const [showCreate, setShowCreate] = useState(false)
   const [banner, setBanner] = useState(null)
   const [selected, setSelected] = useState(null)   // org id being edited
-  const [showUsers, setShowUsers] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -57,7 +55,6 @@ export default function SuperAdminConsole() {
         <div className="panel-actions">
           <button className="btn" onClick={() => { load(); refresh() }}><Icon n="ti-refresh" /> Refresh</button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}><Icon n="ti-building-plus" /> New organisation</button>
-          <button className="btn" onClick={() => setShowUsers(true)}><Icon n="ti-users" /> Users</button>
         </div>
       </div>
 
@@ -194,7 +191,6 @@ export default function SuperAdminConsole() {
           if (res.admin) setBanner({ email: res.admin.email, password: res._pw })
           load()
         }} />}
-      {showUsers && <UsersModal onClose={() => setShowUsers(false)} />}
     </div>
   )
 }

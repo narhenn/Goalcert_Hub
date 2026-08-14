@@ -31,19 +31,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hub-backend")
 
 # ── Identity + gateway wiring (auth, orgs/users/roles, secure proxy) ──
-from db import ensure_schema                    # noqa: E402
+from db import init_db                          # noqa: E402
 from seed import seed_super_admin               # noqa: E402
 from seed_clients import seed_demo_orgs          # noqa: E402
-from rbac_seed import seed_rbac                 # noqa: E402
-from commerce_seed import seed_gateways         # noqa: E402
 import auth_routes                              # noqa: E402
 import admin_routes                             # noqa: E402
-import rbac_routes                              # noqa: E402
-import commerce_routes                          # noqa: E402
-import settings_routes                          # noqa: E402
 import gateway                                  # noqa: E402
-import sso                                      # noqa: E402
-import lms_sync                                 # noqa: E402
 from deps import require_admin                  # noqa: E402
 
 app = FastAPI(title="GoalCert Hub Backend", version="2.0.0")
@@ -51,32 +44,14 @@ app = FastAPI(title="GoalCert Hub Backend", version="2.0.0")
 
 @app.on_event("startup")
 def _startup() -> None:
-    ensure_schema()   # runs pending migrations (AUTO_MIGRATE=0 to verify only)
+    init_db()
     seed_super_admin()
     seed_demo_orgs()
-    seed_rbac()       # catalogue + per-tenant roles; idempotent, never overwrites
-    seed_gateways()   # payment gateway rows + credentials from env; never overwrites
 
 
 app.include_router(auth_routes.router)
 app.include_router(admin_routes.router)
-app.include_router(rbac_routes.router)
-app.include_router(commerce_routes.router)
-app.include_router(settings_routes.router)
-# Outbound SSO into the satellite LMS apps. Mounted before the gateway so
-# /api/sso/* is matched by its own router, not the gateway's /api/{svc} catch-all.
-app.include_router(sso.router)
-# Catalogue pull for the satellite LMS apps (/api/integration/*), also before
-# the gateway's /api/{svc} catch-all.
-app.include_router(lms_sync.router)
 app.include_router(gateway.router)
-
-# Uploaded media, served straight off disk by the local storage driver. Mounted
-# before the SPA catch-all so /media never falls through to index.html.
-import storage as _storage                      # noqa: E402
-_storage.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-from fastapi.staticfiles import StaticFiles as _StaticFiles  # noqa: E402
-app.mount(_storage.MEDIA_URL, _StaticFiles(directory=_storage.MEDIA_ROOT), name="media")
 
 # ── Web search tool (DuckDuckGo, no API key needed) ────────────────
 

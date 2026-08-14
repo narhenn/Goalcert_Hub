@@ -21,7 +21,6 @@ def seed_super_admin() -> None:
     email = os.environ.get("SUPER_ADMIN_EMAIL", "owner@goalcert.io").strip().lower()
     password = os.environ.get("SUPER_ADMIN_PASSWORD", "ChangeMe!2026")
     name = os.environ.get("SUPER_ADMIN_NAME", "Platform Owner")
-    username = os.environ.get("SUPER_ADMIN_USERNAME", "admin").strip().lower() or None
 
     db = SessionLocal()
     try:
@@ -33,7 +32,6 @@ def seed_super_admin() -> None:
             return
         owner = User(
             email=email,
-            username=username,
             full_name=name,
             password_hash=hash_password(password),
             role="super_admin",

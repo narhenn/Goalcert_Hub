@@ -3,15 +3,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import AliasChoices, BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
-    # Sign-in accepts an email address OR a username, so this cannot be EmailStr
-    # ("admin" would 422). `email` stays as an alias so any client still posting
-    # {"email": ...} keeps working unchanged.
-    identifier: str = Field(min_length=1,
-                            validation_alias=AliasChoices("identifier", "email", "username"))
+    email: EmailStr
     password: str
 
 

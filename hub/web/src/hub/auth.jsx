@@ -5,7 +5,6 @@
 // the role their admin assigned — not a free picker. Entitlements come from the org.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import API, { setAuthToken, getAuthToken } from '../api.js'
-import { clearLaunched, clearPending } from './ssoAuto.js'
 
 const AuthCtx = createContext(null)
 
@@ -30,16 +29,13 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:expired', onExpired)
   }, [])
 
-  // Resolves to { user, ssoAutoLaunch } rather than the user alone: the caller
-  // is the sign-in click handler, and it needs the auto-launch decision without
-  // a further await to keep the browser's user-activation window open.
   const login = useCallback(async (email, password) => {
     setError(null)
     try {
-      const { token, user, ssoAutoLaunch = null } = await API.auth.login(email, password)
+      const { token, user } = await API.auth.login(email, password)
       setAuthToken(token)
       setUser(user)
-      return { user, ssoAutoLaunch }
+      return user
     } catch (e) {
       setError(e.detail || e.message || 'Login failed')
       throw e
@@ -48,9 +44,6 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     setAuthToken(null); setUser(null); setError(null)
-    // Without this a sign-out/sign-in cycle in the same tab would be treated as
-    // "already launched" and would silently stop opening the satellite app.
-    clearLaunched(); clearPending()
   }, [])
 
   const refresh = useCallback(async () => {

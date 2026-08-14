@@ -4,13 +4,10 @@
 // renders exactly that persona's platform view (nav grouped by Twin/Scenario/Hive,
 // gated by org entitlements + policy). No persona is chosen in the browser.
 // super_admin/admin may "preview as" another persona to see its dashboard.
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Logo, Icon, pct } from './lib.jsx'
 import { VerticalProvider, useVertical, VERTICALS, verticalForTwin } from './hub/verticalState.jsx'
 import { AuthProvider, useAuth } from './hub/auth.jsx'
-import { RbacProvider, useRbac } from './hub/rbac.jsx'
-import DynamicDashboard from './hub/DynamicDashboard.jsx'
-import { navigate } from './router.jsx'
 import { EntitlementProvider, useEntitlements, NAV, MODULES } from './hub/registry.jsx'
 import { PersonaProvider, usePersona, LOOP_STAGES } from './hub/personas.jsx'
 import { LoopProvider } from './hub/loopState.jsx'
@@ -18,9 +15,7 @@ import { TwinProvider, useTwin, useTwinFrame } from './hub/twinState.jsx'
 import { AuditProvider } from './hub/audit.jsx'
 import Login from './hub/Login.jsx'
 import ChangePassword from './hub/ChangePassword.jsx'
-import Profile from './hub/Profile.jsx'
-import SsoLauncher from './hub/SsoLauncher.jsx'
-import SsoAutoNotice from './hub/SsoAutoNotice.jsx'
+import PersonaSwitcher from './hub/PersonaSwitcher.jsx'
 import LoopBoard from './hub/LoopBoard.jsx'
 import { CoPilotDock, AIDrawer, RepairTakeover } from './hub/AILayer.jsx'
 import Overview from './modules/core/Overview.jsx'
@@ -46,18 +41,6 @@ import OpsReadiness from './modules/coo/OpsReadiness.jsx'
 import AdminConsole from './modules/admin/AdminConsole.jsx'
 import UserManagement from './modules/admin/UserManagement.jsx'
 import SuperAdminConsole from './modules/superadmin/SuperAdminConsole.jsx'
-import './commerce.css'
-import Microservices from './modules/superadmin/Microservices.jsx'
-import Payments from './modules/superadmin/Payments.jsx'
-import Enquiries from './modules/superadmin/Enquiries.jsx'
-import Plans from './modules/superadmin/Plans.jsx'
-import PlatformUsers from './modules/superadmin/PlatformUsers.jsx'
-import Companies from './modules/superadmin/Companies.jsx'
-import Roles from './modules/superadmin/Roles.jsx'
-import Permissions from './modules/superadmin/Permissions.jsx'
-import SidebarBuilder from './modules/superadmin/SidebarBuilder.jsx'
-import { SmtpSettings, StorageSettings } from './modules/superadmin/Settings.jsx'
-import Marketplace from './modules/company/Marketplace.jsx'
 import HiveMind from './modules/hivemind/HiveMind.jsx'
 import './modules/hivemind/hivemind.css'
 import AgentBuilder from './modules/agentbuilder/AgentBuilder.jsx'
@@ -72,14 +55,6 @@ import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind', 'agentbuilder']
 const HUB_IDS = ['loop', 'audit']
 
-// Routes the seeded sidebar exposes that have no screen behind them yet. Listed
-// explicitly so a genuine typo still shows the "not built" panel rather than a
-// silently empty pane — and so this list shrinks visibly as pages get built.
-const UNBUILT_ROUTES = [
-  'billing', 'invoices',
-  'maintenance', 'quality', 'safety',
-]
-
 export default function App() {
   return (
     <AuthProvider>
@@ -93,20 +68,12 @@ function Gate() {
   const { loading, isAuthed, user } = useAuth()
   useEffect(() => { const t = localStorage.getItem('theme'); if (t) document.documentElement.setAttribute('data-theme', t) }, [])
 
-  // /login is only the sign-in screen. Once a session exists, the dashboard is
-  // the real destination — swap the URL so refresh/back land somewhere sensible.
-  useEffect(() => {
-    if (isAuthed && window.location.pathname.replace(/\/+$/, '') === '/login')
-      navigate('/dashboard', { replace: true })
-  }, [isAuthed])
-
   if (loading) return <BootSplash />
   if (!isAuthed) return <Login />
   if (user.mustChangePassword) return <ChangePassword />
 
   return (
     <VerticalProvider>
-      <RbacProvider>
       <EntitlementProvider>
         <PersonaProvider>
           <AuditProvider>
@@ -122,7 +89,6 @@ function Gate() {
           </AuditProvider>
         </PersonaProvider>
       </EntitlementProvider>
-      </RbacProvider>
     </VerticalProvider>
   )
 }
@@ -195,8 +161,7 @@ function VerticalSwitcher() {
 function Shell() {
   const ent = useEntitlements()
   const { user, logout } = useAuth()
-  const rbac = useRbac()
-  const { persona, allows } = usePersona()   // preview mode removed from the shell
+  const { persona, isPreview, exitPreview, allows } = usePersona()
   const { active, openTwin, openExisting } = useTwin()
   const frontline = useFrontline()
   const [route, setRoute] = useState(() => persona.defaultRoute)
@@ -205,37 +170,22 @@ function Shell() {
   const [aiDrawer, setAiDrawer] = useState(false)
   const [takeover, setTakeover] = useState(false)
   const [acctOpen, setAcctOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [, force] = useState(0)
 
-  // The sidebar comes from the SERVER (menus + sidebar_permissions), not from
-  // registry.jsx. Nothing here decides what a role may see.
-  const navTree = rbac.navigation
-  const navIds = rbac.routes
-  const hasAgentic = rbac.can('company.agents.use')
+  const nav = visibleNavFor(persona, ent, allows)
+  const navIds = nav.map(n => n.id)
+  const hasAgentic = ent.has('agentic') && allows(persona.id, 'agentic')
 
-  // Once the server's navigation arrives, land on the first route it grants —
-  // unless the URL names one (?screen=users), which makes dashboard screens
-  // linkable and survives a refresh. A screen the viewer may not open is
-  // ignored, so a shared link can never bypass a permission.
+  // persona (or preview) changed → land on its home surface
   useEffect(() => {
-    if (rbac.loading || !navIds.length) return
-    const internal = ['flow', 'chat', 'predict']   // reachable, but not sidebar entries
-    const wanted = new URLSearchParams(window.location.search).get('screen')
-    if (wanted && navIds.includes(wanted)) { setRoute(wanted); return }
-    if (!navIds.includes(route) && !internal.includes(route)) setRoute(navIds[0])
-  }, [rbac.loading, navIds.join('|')]) // eslint-disable-line
+    setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
+    setAiDrawer(false); setTakeover(false)
+  }, [persona.id]) // eslint-disable-line
 
-  // Keep the URL in step so refresh and back land where the user was.
   useEffect(() => {
-    if (rbac.loading || !route) return
-    const url = new URL(window.location.href)
-    if (url.searchParams.get('screen') === route) return
-    url.searchParams.set('screen', route)
-    window.history.replaceState({}, '', url)
-  }, [route, rbac.loading])
-
-  useEffect(() => { setAiDrawer(false); setTakeover(false) }, [persona.id])
+    if (!navIds.includes(route) && route !== 'flow' && route !== 'overview' && route !== 'chat')
+      setRoute(navIds.includes(persona.defaultRoute) ? persona.defaultRoute : (navIds[0] || 'loop'))
+  }, [ent.enabled, nav.length]) // eslint-disable-line
 
   useEffect(() => {
     const handler = (e) => { if (e.detail?.route) go(e.detail.route) }
@@ -250,18 +200,14 @@ function Shell() {
   const go = (r, params) => { setRoute(r); setRouteParams(params || null); setSidebarOpen(false) }
   const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
 
-  // Group the server's menu tree by its own `section` label, preserving the
-  // order the database gave us. No client-side knowledge of what belongs where.
-  const sections = useMemo(() => {
-    const out = []
-    for (const item of navTree) {
-      const label = item.section || 'Workspace'
-      let sec = out.find(s => s.label === label)
-      if (!sec) { sec = { label, items: [] }; out.push(sec) }
-      sec.items.push(item)
-    }
-    return out
-  }, [navTree])
+  const sections = [
+    { label: `${persona.short} workspace`, items: nav.filter(it => !HUB_IDS.includes(it.id) && !PLATFORM_MODULES.includes(it.module)), mc: persona.accent },
+    { label: MODULES.twin.label, items: nav.filter(it => it.module === 'twin' && !it.hidden), mc: MODULES.twin.accent },
+    { label: MODULES.scenario.label, items: nav.filter(it => it.module === 'scenario'), mc: MODULES.scenario.accent },
+    { label: MODULES.hivemind.label, items: nav.filter(it => it.module === 'hivemind'), mc: MODULES.hivemind.accent },
+    { label: 'Builder', items: nav.filter(it => it.module === 'agentbuilder'), mc: MODULES.agentbuilder.accent },
+    { label: 'Hub', items: nav.filter(it => HUB_IDS.includes(it.id)) },
+  ].filter(s => s.items.length)
 
   const { vertical } = useVertical()
 
@@ -272,14 +218,22 @@ function Shell() {
     <div className="app-root" data-vertical={vertical} style={{ '--pa': persona.accent, '--pa-soft': persona.accentSoft }}>
       <div className="topbar">
         <button className="btn btn-ghost mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Icon n="ti-menu-2" /></button>
-        {/* The lockup already says "Goalcert Hub" — nothing to stack beside it. */}
-        <span className="brand"><Logo size={30} /></span>
-        {/* Context only: the open twin, or which tenant you are inside. The
-            platform owner belongs to no tenant, so their crumb stays empty
-            rather than restating what the sidebar already says. */}
+        <span className="brand"><Logo size={32} />
+          <span className="brand-word">
+            <span className="brand-name">Goalcert</span>
+            <span className="brand-tag">Integration Hub</span>
+          </span>
+        </span>
+        <PersonaSwitcher />
         <div className="crumb">{active
           ? <><b>{active.name}</b> · live twin</>
-          : (user.orgName || null)}</div>
+          : <>{user.orgName || 'Platform'} · {persona.done}</>}</div>
+
+        {isPreview && (
+          <button className="preview-banner" onClick={exitPreview} title="Return to your own view">
+            <Icon n="ti-eye" /> Previewing as {persona.short} <Icon n="ti-x" />
+          </button>
+        )}
 
         {hasAgentic && (
           <button className="topbar-ai" onClick={() => setAiDrawer(true)} title="Agentic AI actions">
@@ -288,13 +242,6 @@ function Shell() {
         )}
         {active && <TopHealthStat />}
         <div className="topstat"><span className="status-dot live" /> LIVE</div>
-        {/* Single sign-on into the satellite LMS apps — platform owner only.
-            Everyone else who may open one reaches it from the Microservices
-            card for that service, so the topbar stays the platform operator's
-            tool rather than a permanent fixture in a tenant's chrome. This is
-            placement, not permission: /api/sso/apps is still the authority on
-            who may open what, and it gates the Microservices route too. */}
-        {user.role === 'super_admin' && <SsoLauncher />}
         <button className="btn btn-ghost" style={{ padding: '5px 8px', fontSize: 14 }} title="Toggle theme" onClick={toggleTheme}>
           <Icon n={isDark ? 'ti-sun' : 'ti-moon'} />
         </button>
@@ -316,10 +263,7 @@ function Shell() {
                     {user.orgName && <span className="pill pill-surface" style={{ fontSize: 9 }}>{user.orgName}</span>}
                   </div>
                 </div>
-                <button className="acct-menu-item" onClick={() => { setAcctOpen(false); setProfileOpen(true) }}>
-                  <Icon n="ti-user-circle" /> Profile & password
-                </button>
-                <button className="acct-menu-item" onClick={() => { setAcctOpen(false); logout(); navigate('/') }}>
+                <button className="acct-menu-item" onClick={() => { setAcctOpen(false); logout() }}>
                   <Icon n="ti-logout" /> Sign out
                 </button>
               </div>
@@ -336,7 +280,7 @@ function Shell() {
             <span className="sb-persona-ic"><Icon n={persona.icon} /></span>
             <span className="sb-persona-body">
               <span className="sb-persona-label">{persona.label}</span>
-              <span className="sb-persona-entry">{persona.entry}</span>
+              <span className="sb-persona-entry">{isPreview ? 'preview' : persona.entry}</span>
             </span>
           </div>
           <div className="sb-stages" title={`Loop stages this persona runs`}>
@@ -348,16 +292,15 @@ function Shell() {
           </div>
 
           <div className="sidebar-nav">
-            {rbac.loading && <div className="sidebar-section">Loading menu…</div>}
-            {!rbac.loading && !sections.length && (
-              <div className="sidebar-section">No menus assigned</div>
-            )}
             {sections.map((sec, si) => (
               <div key={si}>
-                <div className="sidebar-section">{sec.label}</div>
+                <div className="sidebar-section" style={sec.mc ? { color: sec.mc } : undefined}>{sec.label}</div>
                 {sec.items.map(it => (
-                  <NavEntry key={it.id} item={it} route={route} go={go}
-                    frontline={frontline} />
+                  <a key={it.id} className={`nav-item ${route === it.id ? 'active' : ''}`} onClick={() => go(it.id)}>
+                    <Icon n={it.icon} />{it.label}
+                    {it.id === 'dashboard' && <DashboardFindingsBadge />}
+                    {it.id === 'assigned' && frontline.status === 'pending' && <span className="nav-badge badge-blue">1</span>}
+                  </a>
                 ))}
               </div>
             ))}
@@ -367,30 +310,12 @@ function Shell() {
               <div className="sidebar-help" style={{ background: 'linear-gradient(135deg,#7A5CF0,#5b21b6)' }} onClick={() => setAiDrawer(true)}>
                 <Icon n="ti-robot" /> AI layer active</div>
             )}
-            <div className="sidebar-ver">{persona.short} view · {ent.enabled.length || 0} module(s)</div>
+            <div className="sidebar-ver">Goalcert · {persona.short} view · {ent.enabled.length || 0} module(s)</div>
           </div>
         </div>
 
         <div className="content">
-          {/* Only renders when a sign-in auto-launch was blocked. */}
-          <SsoAutoNotice />
-          {/* The role's landing page: widgets resolved from dashboard_permissions. */}
-          {route === 'overview' && <DynamicDashboard />}
-          {route === 'superadmin' && <SuperAdminConsole />}
-          {/* Catalogue, commerce and the tenant storefront. */}
-          {route === 'modules' && <Microservices />}
-          {route === 'payments' && <Payments />}
-          {route === 'plans' && <Plans />}
-          {route === 'companies' && <Companies />}
-          {route === 'roles' && <Roles />}
-          {route === 'permissions' && <Permissions />}
-          {route === 'menus' && <SidebarBuilder />}
-          {route === 'smtp' && <SmtpSettings />}
-          {route === 'storage' && <StorageSettings />}
-          {route === 'enquiries' && <Enquiries />}
-          {route === 'marketplace' && <Marketplace onNav={go} />}
-          {/* Menu rows the database defines but no screen implements yet. */}
-          {UNBUILT_ROUTES.includes(route) && <NotBuilt route={route} />}
+          {route === 'overview' && <Overview user={{ name: user.fullName || user.email.split('@')[0], email: user.email, tenant: user.orgName }} onNav={go} onOpenAI={() => setAiDrawer(true)} />}
           {route === 'twins' && <TwinsLibrary active={active?.domain} canBuild={ent.has('twin')}
             onOpen={(d, n) => { openTwin(d, n); go('dashboard') }}
             onOpenExisting={(t) => { openExisting(t.tenant_id, t.domain, t.name); go('dashboard') }}
@@ -427,9 +352,8 @@ function Shell() {
           {route === 'studio' && <ContentStudio />}
           {route === 'ops' && <OpsReadiness onNav={go} />}
           {route === 'admin' && <AdminConsole onNav={go} />}
-          {/* Same route id, two audiences: the platform owner manages users
-              across every tenant; a company admin manages only their own. */}
-          {route === 'users' && (rbac.isPlatform ? <PlatformUsers /> : <UserManagement />)}
+          {route === 'users' && <UserManagement />}
+          {route === 'superadmin' && <SuperAdminConsole />}
           {route === 'loop' && <LoopBoard />}
           {route === 'audit' && <Audit />}
           {route === 'hivemind' && (
@@ -451,8 +375,6 @@ function Shell() {
           onPickTwin={() => go('overview')} onRepair={() => setTakeover(true)} />
         <RepairTakeover open={takeover} onClose={() => setTakeover(false)} />
       </>}
-
-      {profileOpen && <Profile onClose={() => setProfileOpen(false)} />}
     </div>
   )
 }
@@ -460,59 +382,6 @@ function Shell() {
 const ROLE_LABEL = {
   super_admin: 'Platform Owner', admin: 'Admin / IT', coo: 'Plant Manager / COO',
   compliance: 'Compliance Officer', lnd: 'L&D / Trainer', supervisor: 'Line Supervisor', frontline: 'Frontline Operator',
-}
-
-// One sidebar entry from the server. A parent with children renders as an
-// expandable group; a leaf navigates. Depth is whatever the database says.
-function NavEntry({ item, route, go, frontline }) {
-  const kids = item.children || []
-  const childActive = kids.some(c => c.route === route)
-  const [open, setOpen] = useState(childActive)
-  useEffect(() => { if (childActive) setOpen(true) }, [childActive])
-
-  if (!kids.length) {
-    return (
-      <a className={`nav-item ${route === item.route ? 'active' : ''}`}
-        onClick={() => item.route && go(item.route)}>
-        <Icon n={item.icon} />{item.label}
-        {item.route === 'dashboard' && <DashboardFindingsBadge />}
-        {item.route === 'assigned' && frontline?.status === 'pending' &&
-          <span className="nav-badge badge-blue">1</span>}
-      </a>
-    )
-  }
-
-  return (
-    <>
-      <a className={`nav-item nav-parent ${childActive ? 'has-active' : ''}`}
-        onClick={() => setOpen(o => !o)}>
-        <Icon n={item.icon} />{item.label}
-        <Icon n={open ? 'ti-chevron-down' : 'ti-chevron-right'} />
-      </a>
-      {open && kids.map(c => (
-        <a key={c.id} className={`nav-item nav-child ${route === c.route ? 'active' : ''}`}
-          onClick={() => c.route && go(c.route)}>
-          <Icon n={c.icon} />{c.label}
-        </a>
-      ))}
-    </>
-  )
-}
-
-// A menu row whose screen hasn't been built yet. The sidebar is data, so it can
-// legitimately point at a route with no component — say so instead of blanking.
-function NotBuilt({ route }) {
-  return (
-    <div className="panel">
-      <div className="panel-header"><div>
-        <div className="panel-title">Not built yet</div>
-        <div className="panel-subtitle">
-          This menu entry (<code>{route}</code>) is defined in the database but has no
-          screen behind it yet. Remove or hide it in the Sidebar Builder, or build the page.
-        </div>
-      </div></div>
-    </div>
-  )
 }
 
 // The sidebar's live findings badge. Subscribes to the live frame on its own so

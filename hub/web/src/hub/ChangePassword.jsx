@@ -29,6 +29,10 @@ export default function ChangePassword() {
       <div className="login-card">
         <div className="login-brand">
           <Logo size={40} />
+          <div className="brand-word">
+            <span className="brand-name">Goalcert</span>
+            <span className="brand-tag">Integration Hub</span>
+          </div>
         </div>
         <div className="login-head">
           <div className="login-title">Set your password</div>
