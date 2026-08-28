@@ -5,6 +5,7 @@
 // gated by org entitlements + policy). No persona is chosen in the browser.
 // super_admin/admin may "preview as" another persona to see its dashboard.
 import React, { useEffect, useState } from 'react'
+import API from './api.js'
 import { Logo, Icon, pct } from './lib.jsx'
 import { VerticalProvider, useVertical, VERTICALS, verticalForTwin } from './hub/verticalState.jsx'
 import { AuthProvider, useAuth } from './hub/auth.jsx'
@@ -54,6 +55,16 @@ import { FrontlineProvider, useFrontline } from './hub/frontlineState.jsx'
 // everything else is persona workspace or hub chrome.
 const PLATFORM_MODULES = ['twin', 'scenario', 'hivemind', 'agentbuilder']
 const HUB_IDS = ['loop', 'audit']
+
+// Platform Owner header quick-launch: one-tap jump into each microservice.
+// Twin/Simulation/AUTOMIND are modules of this same hub, so it's a same-origin
+// route switch. LMS is a real separate app, so it goes through a signed SSO
+// ticket (see sso_routes.py) instead of a plain link.
+const QUICK_LAUNCH = [
+  { id: 'twins', label: 'Digital Twin', icon: 'ti-cube' },
+  { id: 'scenario', label: 'Simulation', icon: 'ti-adjustments-bolt' },
+  { id: 'hivemind', label: 'AUTOMIND', icon: 'ti-hexagon' },
+]
 
 export default function App() {
   return (
@@ -171,6 +182,20 @@ function Shell() {
   const [takeover, setTakeover] = useState(false)
   const [acctOpen, setAcctOpen] = useState(false)
   const [, force] = useState(0)
+  const [lmsBusy, setLmsBusy] = useState(false)
+  const [lmsError, setLmsError] = useState(null)
+
+  const launchLms = async () => {
+    setLmsError(null); setLmsBusy(true)
+    try {
+      const { redirect_url } = await API.sso.launchLms()
+      window.open(redirect_url, '_blank', 'noopener')
+    } catch (e) {
+      setLmsError(e.detail || e.message || 'Could not launch the LMS')
+    } finally {
+      setLmsBusy(false)
+    }
+  }
 
   const nav = visibleNavFor(persona, ent, allows)
   const navIds = nav.map(n => n.id)
@@ -233,6 +258,27 @@ function Shell() {
           <button className="preview-banner" onClick={exitPreview} title="Return to your own view">
             <Icon n="ti-eye" /> Previewing as {persona.short} <Icon n="ti-x" />
           </button>
+        )}
+
+        {persona.id === 'superadmin' && (
+          <div className="topbar-ql">
+            {QUICK_LAUNCH.map(q => (
+              <button key={q.id} className="btn btn-ghost topbar-ql-btn" title={`Open ${q.label}`} onClick={() => go(q.id)}>
+                <Icon n={q.icon} /> {q.label}
+              </button>
+            ))}
+            <div className="topbar-ql-wrap">
+              <button className="btn btn-ghost topbar-ql-btn" title="Launch the LMS (SSO)" onClick={launchLms} disabled={lmsBusy}>
+                <Icon n="ti-school" /> {lmsBusy ? 'Launching…' : 'LMS'}
+              </button>
+              {lmsError && (
+                <div className="topbar-ql-err">
+                  <Icon n="ti-alert-circle" /> {lmsError}
+                  <button className="btn btn-ghost" style={{ padding: '2px 6px' }} onClick={() => setLmsError(null)}><Icon n="ti-x" /></button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {hasAgentic && (

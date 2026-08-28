@@ -242,6 +242,11 @@ const API = {
     teamChat: (message, sessionId) => `/api/agentbuilder/team/chat`,  // SSE endpoint
   },
 
+  // ── SSO launch into satellite apps ──
+  sso: {
+    launchLms: () => get('/api/sso/lms/launch'),
+  },
+
   // ── Platform health (all services) ──
   healthCheck: async () => {
     const results = {}

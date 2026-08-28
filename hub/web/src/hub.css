@@ -90,6 +90,16 @@
 .switcher-note{display:flex;align-items:center;gap:7px;margin:6px 6px 4px;padding:8px 11px;border-radius:10px;font-size:11px;
   background:rgba(122,92,240,.1);color:#7A5CF0;font-weight:600}
 
+/* ══ TOPBAR QUICK-LAUNCH (Platform Owner → microservices) ═══════════════ */
+.topbar-ql{display:flex;align-items:center;gap:4px;padding:3px;border-radius:999px;background:var(--surface2);border:1px solid var(--border)}
+.topbar-ql-btn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:6px 10px;border-radius:999px}
+.topbar-ql-btn i{font-size:13px}
+.topbar-ql-wrap{position:relative}
+.topbar-ql-err{position:absolute;top:calc(100% + 8px);right:0;z-index:60;display:flex;align-items:center;gap:8px;
+  width:max-content;max-width:280px;padding:9px 10px;border-radius:10px;font-size:12px;line-height:1.4;
+  background:var(--surface);border:1px solid var(--border2);box-shadow:var(--shadow-lg);color:var(--text);animation:fadeIn .14s ease}
+.topbar-ql-err i{color:#e11d48;flex-shrink:0}
+
 /* ══ TOPBAR AI BUTTON ═════════════════════════════════════════════════ */
 .topbar-ai{display:inline-flex;align-items:center;gap:6px;font-family:var(--font);font-size:12px;font-weight:700;color:#fff;
   background:linear-gradient(135deg,#7A5CF0,#5b21b6);border:0;border-radius:999px;padding:7px 14px;cursor:pointer;
